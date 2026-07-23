@@ -5,9 +5,13 @@ import {
 } from "react-router-dom";
 
 
-import Login from "../pages/Login";
-import Register from "../pages/Register";
+import Login from "../auth/Login";
+import Register from "../auth/Register";
+
 import Dashboard from "../pages/Dashboard";
+import Income from "../pages/Income";
+import Expenses from "../pages/Expenses";
+import Categories from "../pages/Categories";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -37,13 +41,44 @@ function AppRoutes(){
                     path="/dashboard"
                     element={
                         <ProtectedRoute>
-                            <Dashboard />
+                            <Dashboard/>
+                        </ProtectedRoute>
+                    }
+                />
+
+
+                <Route
+                    path="/income"
+                    element={
+                        <ProtectedRoute>
+                            <Income/>
+                        </ProtectedRoute>
+                    }
+                />
+
+
+                <Route
+                    path="/expenses"
+                    element={
+                        <ProtectedRoute>
+                            <Expenses/>
+                        </ProtectedRoute>
+                    }
+                />
+
+
+                <Route
+                    path="/categories"
+                    element={
+                        <ProtectedRoute>
+                            <Categories/>
                         </ProtectedRoute>
                     }
                 />
 
 
             </Routes>
+
 
         </BrowserRouter>
 

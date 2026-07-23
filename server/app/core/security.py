@@ -1,7 +1,8 @@
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
-
+from jose import JWTError
+from fastapi import HTTPException
 
 SECRET_KEY = "pocketpilot_secret_key"
 ALGORITHM = "HS256"
@@ -39,3 +40,28 @@ def create_token(data: dict):
         SECRET_KEY,
         algorithm=ALGORITHM
     )
+
+def verify_token(token: str):
+
+    print("TOKEN RECEIVED:", token)
+
+    try:
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        print("TOKEN PAYLOAD:", payload)
+
+        return payload
+
+    except JWTError as e:
+
+        print("JWT ERROR:", e)
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )

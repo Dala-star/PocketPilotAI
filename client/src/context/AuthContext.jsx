@@ -4,30 +4,45 @@ import { createContext, useState } from "react";
 export const AuthContext = createContext();
 
 
-export function AuthProvider({ children }) {
 
-    const [user, setUser] = useState(
-        localStorage.getItem("token")
+export function AuthProvider({children}){
+
+
+    const [user,setUser] = useState(
+        () => localStorage.getItem("token")
     );
 
 
-    const login = (token) => {
+
+    const login = (token)=>{
+
         localStorage.setItem(
             "token",
             token
         );
 
+
         setUser(token);
+
     };
 
 
-    const logout = () => {
-        localStorage.removeItem("token");
+
+    const logout = ()=>{
+
+        localStorage.removeItem(
+            "token"
+        );
+
+
         setUser(null);
+
     };
+
 
 
     return (
+
         <AuthContext.Provider
             value={{
                 user,
@@ -35,7 +50,12 @@ export function AuthProvider({ children }) {
                 logout
             }}
         >
+
             {children}
+
         </AuthContext.Provider>
+
     );
+
+
 }

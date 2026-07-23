@@ -2,21 +2,32 @@ import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 
 
-function DashboardLayout({children}){
+function DashboardLayout({ children }) {
+
 
     return (
 
-        <div className="flex">
+        <div className="min-h-screen bg-gray-100 flex">
 
-            <Sidebar/>
+
+            {/* Sidebar */}
+
+            <Sidebar />
+
 
 
             <div className="flex-1">
 
-                <Navbar/>
+
+                {/* Navbar */}
+
+                <Navbar />
 
 
-                <main className="p-8">
+
+                {/* Page Content */}
+
+                <main className="p-6">
 
                     {children}
 
@@ -28,7 +39,7 @@ function DashboardLayout({children}){
 
         </div>
 
-    )
+    );
 
 }
 
