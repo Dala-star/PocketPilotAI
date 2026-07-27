@@ -1,6 +1,8 @@
 import API from "../api/axios";
 
 
+// Get all income
+
 export const getIncome = async () => {
 
     const response = await API.get("/income/");
@@ -11,11 +13,14 @@ export const getIncome = async () => {
 
 
 
-export const createIncome = async (incomeData) => {
+
+// Create income
+
+export const createIncome = async (data) => {
 
     const response = await API.post(
         "/income/",
-        incomeData
+        data
     );
 
     return response.data;
@@ -23,6 +28,9 @@ export const createIncome = async (incomeData) => {
 };
 
 
+
+
+// Delete income
 
 export const deleteIncome = async (id) => {
 

@@ -73,14 +73,14 @@ function Register() {
     return (
 
 
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="min-h-screen flex items-center justify-center">
 
 
             <form
 
                 onSubmit={register}
 
-                className="bg-white p-8 rounded-xl shadow-md space-y-4 w-96"
+                className="passbook-card p-8 space-y-4 w-96"
 
             >
 
@@ -91,12 +91,18 @@ function Register() {
 
                 </h1>
 
+                <p className="eyebrow text-center">
+
+                    Start tracking your money
+
+                </p>
+
 
 
 
                 <input
 
-                    className="border p-2 w-full rounded"
+                    className="input-field"
 
                     placeholder="Name"
 
@@ -117,7 +123,7 @@ function Register() {
 
                 <input
 
-                    className="border p-2 w-full rounded"
+                    className="input-field"
 
                     type="email"
 
@@ -140,7 +146,7 @@ function Register() {
 
                 <input
 
-                    className="border p-2 w-full rounded"
+                    className="input-field"
 
                     type="password"
 
@@ -167,7 +173,7 @@ function Register() {
 
                     disabled={loading}
 
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg w-full"
+                    className="btn-primary w-full"
 
                 >
 
@@ -184,7 +190,7 @@ function Register() {
 
 
 
-                <p className="text-center text-sm">
+                <p className="text-center text-sm text-ink-soft">
 
 
                     Already have an account?
@@ -194,7 +200,7 @@ function Register() {
 
                         to="/login"
 
-                        className="text-emerald-600 ml-1"
+                        className="text-mint ml-1 font-medium"
 
                     >
 

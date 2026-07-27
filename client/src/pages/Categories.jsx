@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 
 import DashboardLayout from "../layouts/DashboardLayout";
-
-import {
-    getCategories,
-    createCategory,
-    deleteCategory
-} from "../services/categories";
-
+import API from "../api/axios";
 
 
 function Categories(){
@@ -16,21 +10,30 @@ function Categories(){
     const [categories,setCategories] = useState([]);
 
 
-
     const [name,setName] = useState("");
 
+
+    const [editing,setEditing] = useState(null);
 
 
 
 
     const loadCategories = async()=>{
 
-        const data = await getCategories();
+        try{
 
-        setCategories(data);
+            const response = await API.get("/categories/");
+
+            setCategories(response.data);
+
+        }
+        catch(error){
+
+            console.log(error);
+
+        }
 
     };
-
 
 
 
@@ -45,43 +48,124 @@ function Categories(){
 
 
 
-
-
-    const submit = async(e)=>{
+    const submitCategory = async(e)=>{
 
         e.preventDefault();
 
 
-        if(!name)
+        try{
+
+
+            if(editing){
+
+
+                await API.put(
+
+                    `/categories/${editing}`,
+
+                    {
+                        name
+                    }
+
+                );
+
+
+            }
+            else{
+
+
+                await API.post(
+
+                    "/categories/",
+
+                    {
+                        name
+                    }
+
+                );
+
+
+            }
+
+
+
+            setName("");
+
+            setEditing(null);
+
+            loadCategories();
+
+
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to save category"
+            );
+
+        }
+
+
+    };
+
+
+
+
+
+
+
+    const editCategory=(category)=>{
+
+
+        setEditing(category.id);
+
+        setName(category.name);
+
+
+    };
+
+
+
+
+
+
+    const deleteCategory=async(id)=>{
+
+        if(!window.confirm("Delete this category?")){
             return;
+        }
+
+        try{
 
 
-        await createCategory({
-            name
-        });
+            await API.delete(
+
+                `/categories/${id}`
+
+            );
 
 
-        setName("");
+            loadCategories();
 
-        loadCategories();
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to delete category"
+            );
+
+        }
+
 
     };
-
-
-
-
-
-
-
-    const removeCategory = async(id)=>{
-
-        await deleteCategory(id);
-
-        loadCategories();
-
-    };
-
-
 
 
 
@@ -97,148 +181,232 @@ function Categories(){
             <div className="space-y-6">
 
 
+                <div>
 
-                <h1 className="text-3xl font-bold">
+                    <h1 className="text-3xl font-bold">
+                        Categories
+                    </h1>
 
-                    Categories
+                    <p className="text-ink-soft">
+                        Manage your expense categories.
+                    </p>
 
-                </h1>
-
-
-
-
-
-
-
-                <form
-
-                    onSubmit={submit}
-
-                    className="
-                    bg-white
-                    p-6
-                    rounded-xl
-                    shadow
-                    flex
-                    gap-4
-                    "
-
-                >
-
-
-
-                    <input
-
-                        className="
-                        border
-                        p-2
-                        rounded
-                        flex-1
-                        "
-
-                        placeholder="Category name"
-
-                        value={name}
-
-                        onChange={
-                            e=>setName(e.target.value)
-                        }
-
-                    />
+                </div>
 
 
 
 
 
-                    <button
 
-                        className="
-                        bg-emerald-600
-                        text-white
-                        px-4
-                        rounded-lg
-                        "
+
+                <div className="grid md:grid-cols-3 gap-6">
+
+
+
+
+
+                    <form
+
+                        onSubmit={submitCategory}
+
+                        className="passbook-card p-6 space-y-4"
 
                     >
 
-                        Add
 
-                    </button>
+                        <h2 className="text-xl font-semibold">
 
+                            {
+                                editing
+                                ?
+                                "Edit Category"
+                                :
+                                "Add Category"
+                            }
 
-
-                </form>
-
-
-
-
-
-
-
-
-
-                <div className="bg-white rounded-xl shadow p-6">
-
-
-                    <h2 className="text-xl font-semibold mb-4">
-
-                        Your Categories
-
-                    </h2>
+                        </h2>
 
 
 
 
-
-                    {
-                        categories.map(category=>(
+                        <input
 
 
-                            <div
-
-                                key={category.id}
-
-                                className="
-                                flex
-                                justify-between
-                                border-b
-                                py-3
-                                "
-
-                            >
+                            className="input-field"
 
 
-                                <span>
+                            placeholder="Category name"
 
-                                    {category.name}
 
-                                </span>
+                            value={name}
+
+
+                            onChange={
+                                e=>setName(e.target.value)
+                            }
+
+
+                        />
 
 
 
 
-                                <button
 
-                                    onClick={
-                                        ()=>removeCategory(category.id)
-                                    }
+                        <button
 
-                                    className="text-red-500"
+                            className="btn-primary w-full"
 
-                                >
+                        >
 
-                                    Delete
-
-                                </button>
-
-
-
-                            </div>
+                            {
+                                editing
+                                ?
+                                "Update"
+                                :
+                                "Add"
+                            }
 
 
-                        ))
-                    }
+                        </button>
 
+
+
+                    </form>
+
+
+
+
+
+
+
+
+
+                    <div
+
+                        className="md:col-span-2 passbook-card p-6"
+
+                    >
+
+
+                        <h2 className="text-xl font-semibold mb-4">
+
+                            Your Categories
+
+                        </h2>
+
+
+
+
+
+                        {
+
+                            categories.length === 0
+
+                            ?
+
+                            (
+
+                                <p className="text-ink-soft">
+
+                                    No categories yet.
+
+                                </p>
+
+                            )
+
+                            :
+
+                            (
+
+                                <div className="space-y-3">
+
+
+                                {
+                                    categories.map(category=>(
+
+
+                                        <div
+
+                                            key={category.id}
+
+                                            className="
+                                            flex
+                                            justify-between
+                                            items-center
+                                            border-b
+                                            pb-3
+                                            "
+
+                                        >
+
+
+
+                                            <p className="font-medium">
+
+                                                {category.name}
+
+                                            </p>
+
+
+
+
+
+                                            <div className="flex gap-3">
+
+
+                                                <button
+
+                                                    onClick={
+                                                        ()=>editCategory(category)
+                                                    }
+
+                                                    className="btn-edit-text"
+
+                                                >
+
+                                                    Edit
+
+                                                </button>
+
+
+
+
+                                                <button
+
+                                                    onClick={
+                                                        ()=>deleteCategory(category.id)
+                                                    }
+
+                                                    className="btn-danger-text"
+
+                                                >
+
+                                                    Delete
+
+                                                </button>
+
+
+                                            </div>
+
+
+
+
+                                        </div>
+
+
+                                    ))
+                                }
+
+
+                                </div>
+
+                            )
+
+                        }
+
+
+
+                    </div>
 
 
 
@@ -248,16 +416,15 @@ function Categories(){
 
 
 
-
             </div>
+
 
 
         </DashboardLayout>
 
-    )
+    );
 
 }
-
 
 
 export default Categories;

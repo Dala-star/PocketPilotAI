@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 
 import DashboardLayout from "../layouts/DashboardLayout";
-
-import {
-    getIncome,
-    createIncome,
-    deleteIncome
-} from "../services/income";
+import API from "../api/axios";
 
 
 function Income(){
@@ -16,20 +11,30 @@ function Income(){
 
 
     const [form,setForm] = useState({
-
         amount:"",
         source:"",
         description:""
-
     });
+
+
+    const [editing,setEditing] = useState(null);
 
 
 
     const loadIncome = async()=>{
 
-        const data = await getIncome();
+        try{
 
-        setIncome(data);
+            const response = await API.get("/income/");
+
+            setIncome(response.data);
+
+        }
+        catch(error){
+
+            console.log(error);
+
+        }
 
     };
 
@@ -45,38 +50,136 @@ function Income(){
 
 
 
-    const submit = async(e)=>{
+    const submitIncome = async(e)=>{
 
         e.preventDefault();
 
 
-        await createIncome(form);
+        try{
+
+
+            if(editing){
+
+
+                await API.put(
+                    `/income/${editing}`,
+                    {
+                        amount:Number(form.amount),
+                        source:form.source,
+                        description:form.description
+                    }
+                );
+
+
+            }
+            else{
+
+
+                await API.post(
+                    "/income/",
+                    {
+                        amount:Number(form.amount),
+                        source:form.source,
+                        description:form.description
+                    }
+                );
+
+
+            }
+
+
+
+            setForm({
+                amount:"",
+                source:"",
+                description:""
+            });
+
+
+            setEditing(null);
+
+
+            loadIncome();
+
+
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to save income"
+            );
+
+        }
+
+
+    };
+
+
+
+
+
+
+    const editIncome=(item)=>{
+
+
+        setEditing(item.id);
 
 
         setForm({
 
-            amount:"",
-            source:"",
-            description:""
+            amount:item.amount,
+
+            source:item.source,
+
+            description:item.description || ""
 
         });
 
 
-        loadIncome();
-
     };
 
 
 
 
 
-    const removeIncome = async(id)=>{
 
-        await deleteIncome(id);
+    const deleteIncome=async(id)=>{
 
-        loadIncome();
+        if(!window.confirm("Delete this income entry?")){
+            return;
+        }
+
+        try{
+
+
+            await API.delete(
+                `/income/${id}`
+            );
+
+
+            loadIncome();
+
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to delete income"
+            );
+
+        }
+
 
     };
+
+
 
 
 
@@ -96,146 +199,262 @@ function Income(){
 
 
 
-                <form
-                    onSubmit={submit}
-                    className="bg-white p-6 rounded-xl shadow space-y-4"
-                >
 
-
-                    <input
-                        className="border p-2 w-full"
-                        placeholder="Amount"
-                        value={form.amount}
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                amount:e.target.value
-                            })
-                        }
-                    />
+                <div className="grid md:grid-cols-3 gap-6">
 
 
 
-                    <input
-                        className="border p-2 w-full"
-                        placeholder="Source"
-                        value={form.source}
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                source:e.target.value
-                            })
-                        }
-                    />
+                    <form
 
+                        onSubmit={submitIncome}
 
+                        className="passbook-card p-6 space-y-4"
 
-                    <input
-                        className="border p-2 w-full"
-                        placeholder="Description"
-                        value={form.description}
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                description:e.target.value
-                            })
-                        }
-                    />
-
-
-
-                    <button
-                        className="
-                        bg-emerald-600
-                        text-white
-                        px-4
-                        py-2
-                        rounded-lg
-                        "
                     >
 
-                        Add Income
 
-                    </button>
+                        <h2 className="text-xl font-semibold">
 
+                            {
+                                editing
+                                ?
+                                "Edit Income"
+                                :
+                                "Add Income"
+                            }
 
-                </form>
-
-
-
-
-
-                <div className="bg-white rounded-xl shadow p-6">
-
-
-                    <h2 className="text-xl font-semibold mb-4">
-
-                        Income History
-
-                    </h2>
+                        </h2>
 
 
 
-                    {
-                        income.map(item=>(
+                        <input
 
-                            <div
-                                key={item.id}
-                                className="
-                                flex
-                                justify-between
-                                border-b
-                                py-3
-                                "
-                            >
+                            type="number"
 
-                                <div>
+                            placeholder="Amount"
 
-                                    <p className="font-semibold">
-                                        {item.source}
-                                    </p>
+                            className="input-field"
 
-                                    <p className="text-gray-500">
-                                        {item.description}
-                                    </p>
+                            value={form.amount}
+
+                            onChange={
+                                e =>
+                                setForm({
+                                    ...form,
+                                    amount:e.target.value
+                                })
+                            }
+
+                        />
+
+
+
+
+                        <input
+
+                            placeholder="Source"
+
+                            className="input-field"
+
+                            value={form.source}
+
+                            onChange={
+                                e =>
+                                setForm({
+                                    ...form,
+                                    source:e.target.value
+                                })
+                            }
+
+                        />
+
+
+
+
+                        <textarea
+
+                            placeholder="Description"
+
+                            className="input-field"
+
+                            value={form.description}
+
+                            onChange={
+                                e =>
+                                setForm({
+                                    ...form,
+                                    description:e.target.value
+                                })
+                            }
+
+                        />
+
+
+
+
+                        <button
+
+                            className="btn-primary w-full"
+
+                        >
+
+                            {
+                                editing
+                                ?
+                                "Update Income"
+                                :
+                                "Add Income"
+                            }
+
+                        </button>
+
+
+
+                    </form>
+
+
+
+
+
+
+
+                    <div
+
+                        className="md:col-span-2 passbook-card p-6"
+
+                    >
+
+
+                        <h2 className="text-xl font-semibold mb-4">
+
+                            Income History
+
+                        </h2>
+
+
+
+
+                        {
+                            income.length === 0 ?
+
+                            (
+
+                                <p className="text-ink-soft">
+                                    No income yet.
+                                </p>
+
+                            )
+
+                            :
+
+                            income.map(item=>(
+
+
+                                <div
+
+                                    key={item.id}
+
+                                    className="
+                                    flex
+                                    justify-between
+                                    items-center
+                                    border-b
+                                    py-3
+                                    "
+
+                                >
+
+
+                                    <div>
+
+
+                                        <p className="font-semibold">
+
+                                            {item.source}
+
+                                        </p>
+
+
+                                        <p className="text-sm text-ink-soft">
+
+                                            {item.description}
+
+                                        </p>
+
+
+                                    </div>
+
+
+
+
+                                    <div className="flex items-center gap-3">
+
+
+                                        <span className="amount text-mint font-bold">
+
+                                            +${Number(item.amount).toFixed(2)}
+
+                                        </span>
+
+
+
+                                        <button
+
+                                            onClick={()=>editIncome(item)}
+
+                                            className="btn-edit-text"
+
+                                        >
+
+                                            Edit
+
+                                        </button>
+
+
+
+
+                                        <button
+
+                                            onClick={()=>deleteIncome(item.id)}
+
+                                            className="btn-danger-text"
+
+                                        >
+
+                                            Delete
+
+                                        </button>
+
+
+
+                                    </div>
+
+
 
                                 </div>
 
 
+                            ))
 
-                                <div>
-
-                                    <p>
-                                        ${item.amount}
-                                    </p>
+                        }
 
 
-                                    <button
-                                        onClick={()=>removeIncome(item.id)}
-                                        className="text-red-500"
-                                    >
-                                        Delete
-                                    </button>
 
-                                </div>
+                    </div>
 
-
-                            </div>
-
-
-                        ))
-                    }
 
 
                 </div>
 
 
+
             </div>
+
 
 
         </DashboardLayout>
 
-    )
+    );
 
 }
 

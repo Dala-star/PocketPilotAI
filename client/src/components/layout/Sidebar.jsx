@@ -39,6 +39,12 @@ function Sidebar() {
         },
 
         {
+            name: "Budgets",
+            icon: <FiList />,
+            path: "/budgets"
+        },
+
+        {
             name: "Settings",
             icon: <FiSettings />,
             path: "/settings"

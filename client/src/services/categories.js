@@ -1,6 +1,8 @@
 import API from "../api/axios";
 
 
+// Get categories
+
 export const getCategories = async () => {
 
     const response = await API.get("/categories/");
@@ -11,11 +13,14 @@ export const getCategories = async () => {
 
 
 
-export const createCategory = async (categoryData) => {
+
+// Create category
+
+export const createCategory = async (data) => {
 
     const response = await API.post(
         "/categories/",
-        categoryData
+        data
     );
 
     return response.data;
@@ -23,6 +28,9 @@ export const createCategory = async (categoryData) => {
 };
 
 
+
+
+// Delete category
 
 export const deleteCategory = async (id) => {
 

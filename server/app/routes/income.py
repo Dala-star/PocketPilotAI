@@ -94,27 +94,18 @@ def update_income(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     income = (
         db.query(Income)
-        .filter(
-            Income.id == income_id,
-            Income.user_id == current_user.id
-        )
+        .filter(Income.id == income_id, Income.user_id == current_user.id)
         .first()
     )
 
     if not income:
-        raise HTTPException(
-            status_code=404,
-            detail="Income not found"
-        )
+        raise HTTPException(status_code=404, detail="Income not found")
 
-
-    income.amount = data.amount
-    income.source = data.source
-    income.description = data.description
-
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(income, field, value)
 
     db.commit()
     db.refresh(income)

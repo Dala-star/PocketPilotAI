@@ -36,7 +36,6 @@ function Login() {
                 form.password
             );
 
-
             login(
                 response.access_token
             );
@@ -67,24 +66,28 @@ function Login() {
 
     return (
 
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="min-h-screen flex items-center justify-center">
 
 
             <form
                 onSubmit={submit}
-                className="bg-white p-8 rounded-xl shadow-md space-y-4 w-96"
+                className="passbook-card p-8 space-y-4 w-96"
             >
 
 
                 <h1 className="text-2xl font-bold text-center">
-                    Login
+                    PocketPilot AI
                 </h1>
+
+                <p className="eyebrow text-center">
+                    Log in to your account
+                </p>
 
 
 
                 <input
 
-                    className="border p-2 w-full rounded"
+                    className="input-field"
 
                     type="email"
 
@@ -106,7 +109,7 @@ function Login() {
 
                 <input
 
-                    className="border p-2 w-full rounded"
+                    className="input-field"
 
                     type="password"
 
@@ -132,7 +135,7 @@ function Login() {
 
                     disabled={loading}
 
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg w-full"
+                    className="btn-primary w-full"
 
                 >
 
@@ -148,7 +151,7 @@ function Login() {
 
 
 
-                <p className="text-center text-sm">
+                <p className="text-center text-sm text-ink-soft">
 
 
                     Don't have an account?
@@ -158,7 +161,7 @@ function Login() {
 
                         to="/register"
 
-                        className="text-emerald-600 ml-1"
+                        className="text-mint ml-1 font-medium"
 
                     >
 

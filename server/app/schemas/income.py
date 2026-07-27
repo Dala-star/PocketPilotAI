@@ -1,17 +1,18 @@
-from pydantic import BaseModel
+# schemas/income.py
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
 
 class IncomeCreate(BaseModel):
-    amount: float
+    amount: float = Field(gt=0)
     source: str
     description: Optional[str] = None
 
 
 class IncomeUpdate(BaseModel):
-    amount: float
-    source: str
+    amount: Optional[float] = Field(default=None, gt=0)
+    source: Optional[str] = None
     description: Optional[str] = None
 
 

@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
 
 import DashboardLayout from "../layouts/DashboardLayout";
-
-import {
-    getExpenses,
-    createExpense,
-    deleteExpense
-} from "../services/expenses";
-
-import {
-    getCategories
-} from "../services/categories";
-
+import API from "../api/axios";
 
 
 function Expenses(){
@@ -20,7 +10,6 @@ function Expenses(){
     const [expenses,setExpenses] = useState([]);
 
     const [categories,setCategories] = useState([]);
-
 
 
     const [form,setForm] = useState({
@@ -32,21 +21,26 @@ function Expenses(){
     });
 
 
+    const [editing,setEditing] = useState(null);
 
 
 
-    const loadData = async()=>{
 
 
-        const expenseData = await getExpenses();
+    const loadExpenses = async()=>{
 
-        const categoryData = await getCategories();
+        try{
 
+            const response = await API.get("/expenses/");
 
-        setExpenses(expenseData);
+            setExpenses(response.data);
 
-        setCategories(categoryData);
+        }
+        catch(error){
 
+            console.log(error);
+
+        }
 
     };
 
@@ -54,9 +48,37 @@ function Expenses(){
 
 
 
+
+    const loadCategories = async()=>{
+
+        try{
+
+            const response = await API.get("/categories/");
+
+            setCategories(response.data);
+
+        }
+        catch(error){
+
+            console.log(error);
+
+        }
+
+    };
+
+
+
+
+
+
+
     useEffect(()=>{
 
-        loadData();
+
+        loadExpenses();
+
+        loadCategories();
+
 
     },[]);
 
@@ -66,35 +88,156 @@ function Expenses(){
 
 
 
-    const submit = async(e)=>{
+
+
+    const submitExpense = async(e)=>{
 
         e.preventDefault();
 
 
-        await createExpense({
+        try{
 
-            amount:Number(form.amount),
 
-            description:form.description,
+            const data = {
 
-            category_id:Number(form.category_id)
+                amount:Number(form.amount),
 
-        });
+                description:form.description,
 
+                category_id:Number(form.category_id)
+
+            };
+
+
+
+
+
+            if(editing){
+
+
+                await API.put(
+
+                    `/expenses/${editing}`,
+
+                    data
+
+                );
+
+
+            }
+            else{
+
+
+                await API.post(
+
+                    "/expenses/",
+
+                    data
+
+                );
+
+
+            }
+
+
+
+            setForm({
+
+                amount:"",
+                description:"",
+                category_id:""
+
+            });
+
+
+
+            setEditing(null);
+
+
+            loadExpenses();
+
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to save expense"
+            );
+
+        }
+
+
+    };
+
+
+
+
+
+
+
+
+
+    const editExpense=(expense)=>{
+
+
+        setEditing(expense.id);
 
 
         setForm({
 
-            amount:"",
+            amount:expense.amount,
 
-            description:"",
+            description:expense.description || "",
 
-            category_id:""
+            category_id:expense.category_id
 
         });
 
 
-        loadData();
+    };
+
+
+
+
+
+
+
+
+
+    const deleteExpense=async(id)=>{
+
+        if(!window.confirm("Delete this expense?")){
+            return;
+        }
+
+        try{
+
+
+            await API.delete(
+
+                `/expenses/${id}`
+
+            );
+
+
+            loadExpenses();
+
+
+        }
+        catch(error){
+
+            console.log(error);
+
+            alert(
+                error.response?.data?.detail ||
+                "Failed to delete expense"
+            );
+
+        }
+
 
     };
 
@@ -105,15 +248,25 @@ function Expenses(){
 
 
 
-    const removeExpense = async(id)=>{
 
-        await deleteExpense(id);
+    const getCategoryName=(id)=>{
 
-        loadData();
+
+        const category = categories.find(
+
+            item=>item.id === id
+
+        );
+
+
+        return category
+        ?
+        category.name
+        :
+        "Unknown";
+
 
     };
-
-
 
 
 
@@ -130,76 +283,23 @@ function Expenses(){
 
 
 
-                <h1 className="text-3xl font-bold">
+                <div>
 
-                    Expenses
+                    <h1 className="text-3xl font-bold">
 
-                </h1>
+                        Expenses
 
-
-
-
+                    </h1>
 
 
+                    <p className="text-ink-soft">
 
-                <form
+                        Track where your money goes.
 
-                    onSubmit={submit}
-
-                    className="
-                    bg-white
-                    p-6
-                    rounded-xl
-                    shadow
-                    space-y-4
-                    "
-
-                >
+                    </p>
 
 
-
-
-                    <input
-
-                        type="number"
-
-                        className="border p-2 w-full rounded"
-
-                        placeholder="Amount"
-
-                        value={form.amount}
-
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                amount:e.target.value
-                            })
-                        }
-
-                    />
-
-
-
-
-
-
-
-                    <input
-
-                        className="border p-2 w-full rounded"
-
-                        placeholder="Description"
-
-                        value={form.description}
-
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                description:e.target.value
-                            })
-                        }
-
-                    />
+                </div>
 
 
 
@@ -208,174 +308,326 @@ function Expenses(){
 
 
 
-                    <select
+                <div className="grid md:grid-cols-3 gap-6">
 
-                        className="border p-2 w-full rounded"
 
-                        value={form.category_id}
 
-                        onChange={
-                            e=>setForm({
-                                ...form,
-                                category_id:e.target.value
-                            })
-                        }
+
+
+                    <form
+
+                        onSubmit={submitExpense}
+
+                        className="passbook-card p-6 space-y-4"
 
                     >
 
 
-                        <option value="">
+                        <h2 className="text-xl font-semibold">
 
-                            Select Category
+                            {
+                                editing
+                                ?
+                                "Edit Expense"
+                                :
+                                "Add Expense"
+                            }
 
-                        </option>
+                        </h2>
+
+
+
+
+
+                        <input
+
+                            type="number"
+
+                            placeholder="Amount"
+
+                            className="input-field"
+
+                            value={form.amount}
+
+                            onChange={
+                                e=>
+                                setForm({
+                                    ...form,
+                                    amount:e.target.value
+                                })
+                            }
+
+                        />
+
+
+
+
+
+
+                        <select
+
+
+                            className="input-field"
+
+
+                            value={form.category_id}
+
+
+                            onChange={
+                                e=>
+                                setForm({
+                                    ...form,
+                                    category_id:e.target.value
+                                })
+                            }
+
+
+                        >
+
+
+                            <option value="">
+
+                                Select Category
+
+                            </option>
+
+
+
+                            {
+
+                                categories.map(category=>(
+
+
+                                    <option
+
+                                        key={category.id}
+
+                                        value={category.id}
+
+                                    >
+
+                                        {category.name}
+
+                                    </option>
+
+
+                                ))
+
+                            }
+
+
+                        </select>
+
+
+
+
+
+
+
+
+                        <textarea
+
+
+                            placeholder="Description"
+
+
+                            className="input-field"
+
+
+                            value={form.description}
+
+
+                            onChange={
+                                e=>
+                                setForm({
+                                    ...form,
+                                    description:e.target.value
+                                })
+                            }
+
+
+                        />
+
+
+
+
+
+
+                        <button
+
+                            className="btn-primary w-full"
+
+                        >
+
+                            {
+                                editing
+                                ?
+                                "Update Expense"
+                                :
+                                "Add Expense"
+                            }
+
+
+                        </button>
+
+
+
+                    </form>
+
+
+
+
+
+
+
+
+
+                    <div
+
+                        className="md:col-span-2 passbook-card p-6"
+
+                    >
+
+
+
+                        <h2 className="text-xl font-semibold mb-4">
+
+                            Expense History
+
+                        </h2>
+
+
+
 
 
 
                         {
-                            categories.map(category=>(
+
+                            expenses.length === 0
+
+                            ?
+
+                            (
+
+                                <p className="text-ink-soft">
+
+                                    No expenses yet.
+
+                                </p>
+
+                            )
 
 
-                                <option
+                            :
 
-                                    key={category.id}
 
-                                    value={category.id}
+                            expenses.map(expense=>(
+
+
+                                <div
+
+                                    key={expense.id}
+
+                                    className="
+                                    flex
+                                    justify-between
+                                    items-center
+                                    border-b
+                                    py-3
+                                    "
 
                                 >
 
-                                    {category.name}
 
-                                </option>
-
-
-                            ))
-                        }
+                                    <div>
 
 
-                    </select>
+                                        <p className="font-semibold">
 
+                                            {getCategoryName(
+                                                expense.category_id
+                                            )}
 
-
+                                        </p>
 
 
 
+                                        <p className="text-sm text-ink-soft">
+
+                                            {expense.description}
+
+                                        </p>
 
 
-
-                    <button
-
-                        className="
-                        bg-red-500
-                        text-white
-                        px-4
-                        py-2
-                        rounded-lg
-                        "
-
-                    >
-
-                        Add Expense
-
-                    </button>
-
-
-
-
-                </form>
+                                    </div>
 
 
 
 
 
+                                    <div className="flex items-center gap-3">
+
+
+                                        <span className="amount text-coral font-bold">
+
+                                            -${Number(expense.amount).toFixed(2)}
+
+                                        </span>
+
+
+
+                                        <button
+
+                                            onClick={
+                                                ()=>editExpense(expense)
+                                            }
+
+                                            className="btn-edit-text"
+
+                                        >
+
+                                            Edit
+
+                                        </button>
 
 
 
 
-                <div className="bg-white rounded-xl shadow p-6">
 
+                                        <button
 
-                    <h2 className="text-xl font-semibold mb-4">
+                                            onClick={
+                                                ()=>deleteExpense(expense.id)
+                                            }
 
-                        Expense History
+                                            className="btn-danger-text"
 
-                    </h2>
+                                        >
 
+                                            Delete
 
-
-
-
-                    {
-                        expenses.map(item=>(
-
-
-                            <div
-
-                                key={item.id}
-
-                                className="
-                                flex
-                                justify-between
-                                border-b
-                                py-3
-                                "
-
-                            >
-
-
-                                <div>
-
-
-                                    <p className="font-semibold">
-
-                                        ${item.amount}
-
-                                    </p>
-
-
-                                    <p className="text-gray-500">
-
-                                        {item.description}
-
-                                    </p>
+                                        </button>
 
 
 
-                                    <p className="text-sm text-gray-400">
+                                    </div>
 
-                                        Category ID: {item.category_id}
 
-                                    </p>
 
 
                                 </div>
 
 
+                            ))
 
-
-
-                                <button
-
-                                    onClick={
-                                        ()=>removeExpense(item.id)
-                                    }
-
-                                    className="text-red-500"
-
-                                >
-
-                                    Delete
-
-                                </button>
+                        }
 
 
 
 
-                            </div>
 
+                    </div>
 
-                        ))
-                    }
 
 
 
@@ -386,15 +638,17 @@ function Expenses(){
 
 
 
+
             </div>
+
 
 
         </DashboardLayout>
 
-    )
+    );
+
 
 }
-
 
 
 export default Expenses;

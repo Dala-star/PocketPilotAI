@@ -6,6 +6,8 @@ from app.dependencies import get_current_user
 
 from app.models.user import User
 from app.models.category import Category
+from app.models.expense import Expense
+from app.models.budget import Budget
 
 from app.schemas.category import (
     CategoryCreate,
@@ -119,6 +121,24 @@ def delete_category(
         raise HTTPException(
             status_code=404,
             detail="Category not found"
+        )
+
+    expense_count = (
+        db.query(Expense)
+        .filter(Expense.category_id == category_id)
+        .count()
+    )
+
+    budget_count = (
+        db.query(Budget)
+        .filter(Budget.category_id == category_id)
+        .count()
+    )
+
+    if expense_count > 0 or budget_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete category with existing expenses or budgets. Reassign or delete them first."
         )
 
     db.delete(category)

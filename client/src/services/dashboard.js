@@ -1,51 +1,51 @@
 import API from "../api/axios";
 
 
-export const getDashboardData = async () => {
+export const getDashboardData = async()=>{
 
 
-    const incomeResponse = await API.get("/income/");
+    const incomeResponse = await API.get(
+        "/income/"
+    );
 
 
-    const expenseResponse = await API.get("/expenses/");
+    const expenseResponse = await API.get(
+        "/expenses/"
+    );
+
+
+    const categoryResponse = await API.get(
+        "/categories/"
+    );
 
 
 
     const incomes = incomeResponse.data;
 
-
     const expenses = expenseResponse.data;
 
+    const categories = categoryResponse.data;
 
 
 
     const totalIncome = incomes.reduce(
-
-        (sum, item) => sum + item.amount,
-
+        (sum,item)=>sum + item.amount,
         0
-
     );
-
 
 
 
     const totalExpenses = expenses.reduce(
-
-        (sum, item) => sum + item.amount,
-
+        (sum,item)=>sum + item.amount,
         0
-
     );
-
-
 
 
 
     const transactions = [
 
 
-        ...incomes.map(item => ({
+        ...incomes.map(item=>({
 
             id:item.id,
 
@@ -61,13 +61,13 @@ export const getDashboardData = async () => {
 
 
 
-        ...expenses.map(item => ({
+        ...expenses.map(item=>({
 
             id:item.id,
 
             type:"expense",
 
-            title:item.description,
+            title:item.description || "Expense",
 
             amount:item.amount,
 
@@ -81,36 +81,95 @@ export const getDashboardData = async () => {
 
 
 
-
     transactions.sort(
 
         (a,b)=>
-
-        new Date(b.date) - new Date(a.date)
+        new Date(b.date) -
+        new Date(a.date)
 
     );
 
+const chartData = [
+    {
+        name:"Finance",
+        income:totalIncome,
+        expenses:totalExpenses
+    }
+];
 
 
+
+const spendingTrend = expenses.map(item=>({
+
+    date:new Date(item.date)
+        .toLocaleDateString(),
+
+    amount:item.amount
+
+}));
+
+
+const categoryTotals = {};
+
+
+expenses.forEach(expense=>{
+
+
+    const category =
+    expense.category_id;
+
+
+    if(!categoryTotals[category]){
+
+        categoryTotals[category]=0;
+
+    }
+
+
+    categoryTotals[category]+=expense.amount;
+
+
+});
+
+
+
+const categoryData = Object.keys(categoryTotals)
+.map(categoryId=>{
+
+    const match = categories.find(
+        c=>c.id===Number(categoryId)
+    );
+
+    return {
+
+        name: match ? match.name : "Uncategorized",
+
+        amount:categoryTotals[categoryId]
+
+    };
+
+});
 
 
     return {
 
+    totalIncome,
 
-        balance:
-            totalIncome - totalExpenses,
+    totalExpenses,
 
-
-        totalIncome,
-
-
-        totalExpenses,
+    balance:
+    totalIncome-totalExpenses,
 
 
-        transactions
+    transactions,
 
 
-    };
+    chartData,
 
+
+    spendingTrend,
+
+    categoryData
 
 };
+}

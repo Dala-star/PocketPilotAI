@@ -18,17 +18,12 @@ router = APIRouter(
 )
 
 
-# Create Expense
-@router.post(
-    "/",
-    response_model=ExpenseResponse
-)
+@router.post("/", response_model=ExpenseResponse)
 def create_expense(
     expense: ExpenseCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     new_expense = Expense(
         amount=expense.amount,
         description=expense.description,
@@ -43,16 +38,11 @@ def create_expense(
     return new_expense
 
 
-# Get All Expenses
-@router.get(
-    "/",
-    response_model=list[ExpenseResponse]
-)
+@router.get("/", response_model=list[ExpenseResponse])
 def get_expenses(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     return (
         db.query(Expense)
         .filter(Expense.user_id == current_user.id)
@@ -61,65 +51,43 @@ def get_expenses(
     )
 
 
-# Get One Expense
-@router.get(
-    "/{expense_id}",
-    response_model=ExpenseResponse
-)
+@router.get("/{expense_id}", response_model=ExpenseResponse)
 def get_expense(
     expense_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     expense = (
         db.query(Expense)
-        .filter(
-            Expense.id == expense_id,
-            Expense.user_id == current_user.id
-        )
+        .filter(Expense.id == expense_id, Expense.user_id == current_user.id)
         .first()
     )
 
     if not expense:
-        raise HTTPException(
-            status_code=404,
-            detail="Expense not found"
-        )
+        raise HTTPException(status_code=404, detail="Expense not found")
 
     return expense
 
 
-# Update Expense
-@router.put(
-    "/{expense_id}",
-    response_model=ExpenseResponse
-)
+@router.put("/{expense_id}", response_model=ExpenseResponse)
 def update_expense(
     expense_id: int,
     data: ExpenseUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     expense = (
         db.query(Expense)
-        .filter(
-            Expense.id == expense_id,
-            Expense.user_id == current_user.id
-        )
+        .filter(Expense.id == expense_id, Expense.user_id == current_user.id)
         .first()
     )
 
     if not expense:
-        raise HTTPException(
-            status_code=404,
-            detail="Expense not found"
-        )
+        raise HTTPException(status_code=404, detail="Expense not found")
 
-    expense.amount = data.amount
-    expense.description = data.description
-    expense.category_id = data.category_id
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(expense, field, value)
 
     db.commit()
     db.refresh(expense)
@@ -127,32 +95,22 @@ def update_expense(
     return expense
 
 
-# Delete Expense
 @router.delete("/{expense_id}")
 def delete_expense(
     expense_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     expense = (
         db.query(Expense)
-        .filter(
-            Expense.id == expense_id,
-            Expense.user_id == current_user.id
-        )
+        .filter(Expense.id == expense_id, Expense.user_id == current_user.id)
         .first()
     )
 
     if not expense:
-        raise HTTPException(
-            status_code=404,
-            detail="Expense not found"
-        )
+        raise HTTPException(status_code=404, detail="Expense not found")
 
     db.delete(expense)
     db.commit()
 
-    return {
-        "message": "Expense deleted successfully"
-    }
+    return {"message": "Expense deleted successfully"}

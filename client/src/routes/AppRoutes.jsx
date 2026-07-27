@@ -1,22 +1,27 @@
 import {
     BrowserRouter,
     Routes,
-    Route
+    Route,
+    Navigate
 } from "react-router-dom";
 
 
 import Login from "../auth/Login";
 import Register from "../auth/Register";
-
 import Dashboard from "../pages/Dashboard";
 import Income from "../pages/Income";
 import Expenses from "../pages/Expenses";
 import Categories from "../pages/Categories";
+import Budgets from "../pages/Budgets";
+import Settings from "../pages/Settings";
+
 
 import ProtectedRoute from "./ProtectedRoute";
 
 
+
 function AppRoutes(){
+
 
     return (
 
@@ -25,10 +30,21 @@ function AppRoutes(){
             <Routes>
 
 
+
+                <Route
+                    path="/"
+                    element={
+                        <Navigate to="/login" />
+                    }
+                />
+
+
+
                 <Route
                     path="/login"
                     element={<Login />}
                 />
+
 
 
                 <Route
@@ -37,44 +53,65 @@ function AppRoutes(){
                 />
 
 
+
+
                 <Route
                     path="/dashboard"
                     element={
                         <ProtectedRoute>
-                            <Dashboard/>
+                            <Dashboard />
                         </ProtectedRoute>
                     }
                 />
+
+
 
 
                 <Route
                     path="/income"
                     element={
                         <ProtectedRoute>
-                            <Income/>
+                            <Income />
                         </ProtectedRoute>
                     }
                 />
-
 
                 <Route
                     path="/expenses"
                     element={
                         <ProtectedRoute>
-                            <Expenses/>
+                            <Expenses />
                         </ProtectedRoute>
                     }
                 />
-
 
                 <Route
                     path="/categories"
                     element={
                         <ProtectedRoute>
-                            <Categories/>
+                            <Categories />
                         </ProtectedRoute>
                     }
                 />
+
+                <Route
+                    path="/budgets"
+                    element={
+                        <ProtectedRoute>
+                            <Budgets />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/settings"
+                    element={
+                        <ProtectedRoute>
+                            <Settings />
+                        </ProtectedRoute>
+                    }
+                />
+
 
 
             </Routes>
@@ -82,7 +119,7 @@ function AppRoutes(){
 
         </BrowserRouter>
 
-    )
+    );
 
 }
 

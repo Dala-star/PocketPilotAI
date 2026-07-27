@@ -1,6 +1,8 @@
 import API from "../api/axios";
 
 
+// Get expenses
+
 export const getExpenses = async () => {
 
     const response = await API.get("/expenses/");
@@ -11,11 +13,14 @@ export const getExpenses = async () => {
 
 
 
-export const createExpense = async (expenseData) => {
+
+// Create expense
+
+export const createExpense = async (data) => {
 
     const response = await API.post(
         "/expenses/",
-        expenseData
+        data
     );
 
     return response.data;
@@ -23,6 +28,9 @@ export const createExpense = async (expenseData) => {
 };
 
 
+
+
+// Delete expense
 
 export const deleteExpense = async (id) => {
 
