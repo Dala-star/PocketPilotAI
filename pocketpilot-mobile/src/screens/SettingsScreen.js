@@ -8,9 +8,10 @@ import {
     Modal,
     Alert,
     Switch,
-    Linking,
     StyleSheet,
     RefreshControl,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +34,7 @@ import {
     updatePreferences,
     getNotificationPreferences,
     updateNotificationPreferences,
+    submitFeedback,
 } from "../api/settings";
 import { getExpenses } from "../api/expenses";
 import { getIncome } from "../api/income";
@@ -186,6 +188,7 @@ function SettingsScreen() {
     const [termsModalVisible, setTermsModalVisible] = useState(false);
     const [helpModalVisible, setHelpModalVisible] = useState(false);
     const [feedbackMessage, setFeedbackMessage] = useState("");
+    const [sendingFeedback, setSendingFeedback] = useState(false);
 
     // Generic picker modal state, reused for currency / budget period /
     // start of week so we don't need three near-identical modals.
@@ -874,7 +877,7 @@ function SettingsScreen() {
     };
 
 
-    const sendFeedback = () => {
+    const sendFeedback = async () => {
 
         if (!feedbackMessage.trim()) {
 
@@ -886,30 +889,36 @@ function SettingsScreen() {
 
         }
 
-        const subject = encodeURIComponent("PocketPilot AI Feedback");
+        try {
 
-        const body = encodeURIComponent(
-            `${feedbackMessage.trim()}\n\n---\nFrom: ${profile.email || "unknown"}`
-        );
+            setSendingFeedback(true);
 
-        const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+            await submitFeedback(feedbackMessage.trim());
 
-        Linking.openURL(mailto)
-            .then(() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-                setHelpModalVisible(false);
+            setHelpModalVisible(false);
 
-                setFeedbackMessage("");
+            setFeedbackMessage("");
 
-            })
-            .catch(() => {
+            Alert.alert("Thanks!", "Your feedback has been sent.");
 
-                Alert.alert(
-                    "No mail app found",
-                    `Email us directly at ${SUPPORT_EMAIL}.`
-                );
+        } catch (error) {
 
-            });
+            console.log(error);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            Alert.alert(
+                "Couldn't send feedback",
+                error.response?.data?.detail || `Please try again, or email us directly at ${SUPPORT_EMAIL}.`
+            );
+
+        } finally {
+
+            setSendingFeedback(false);
+
+        }
 
     };
 
@@ -1231,7 +1240,10 @@ function SettingsScreen() {
                 onRequestClose={() => setProfileModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
@@ -1268,7 +1280,7 @@ function SettingsScreen() {
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 
@@ -1279,7 +1291,10 @@ function SettingsScreen() {
                 onRequestClose={() => setEmailModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
@@ -1331,7 +1346,7 @@ function SettingsScreen() {
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 
@@ -1342,7 +1357,10 @@ function SettingsScreen() {
                 onRequestClose={() => setPasswordModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
@@ -1404,7 +1422,7 @@ function SettingsScreen() {
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 
@@ -1463,7 +1481,10 @@ function SettingsScreen() {
                 onRequestClose={() => setDeleteModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
@@ -1523,7 +1544,7 @@ function SettingsScreen() {
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 
@@ -1594,15 +1615,18 @@ function SettingsScreen() {
                 onRequestClose={() => setHelpModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
                         <Text style={styles.modalTitle}>Help & Feedback</Text>
 
                         <Text style={styles.modalSubtitle}>
-                            Tell us what's wrong or what you'd like to see — this opens your
-                            mail app addressed to {SUPPORT_EMAIL}.
+                            Tell us what's wrong or what you'd like to see — this sends
+                            straight to our team, no need to leave the app.
                         </Text>
 
                         <TextInput
@@ -1613,6 +1637,7 @@ function SettingsScreen() {
                             textAlignVertical="top"
                             value={feedbackMessage}
                             onChangeText={setFeedbackMessage}
+                            editable={!sendingFeedback}
                         />
 
                         <View style={styles.modalActions}>
@@ -1620,19 +1645,26 @@ function SettingsScreen() {
                             <TouchableOpacity
                                 style={styles.cancelButton}
                                 onPress={() => setHelpModalVisible(false)}
+                                disabled={sendingFeedback}
                             >
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.saveButton} onPress={sendFeedback}>
-                                <Text style={styles.saveButtonText}>Send</Text>
+                            <TouchableOpacity
+                                style={[styles.saveButton, sendingFeedback && styles.buttonDisabled]}
+                                onPress={sendFeedback}
+                                disabled={sendingFeedback}
+                            >
+                                <Text style={styles.saveButtonText}>
+                                    {sendingFeedback ? "Sending..." : "Send"}
+                                </Text>
                             </TouchableOpacity>
 
                         </View>
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 

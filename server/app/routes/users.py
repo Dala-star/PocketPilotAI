@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 
 from app.database.db import get_db
 from app.dependencies import get_current_user
@@ -16,6 +17,12 @@ from app.core.security import (
     verify_password,
     hash_password
 )
+
+from app.core.email_service import send_feedback_email
+
+
+class FeedbackRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
 
 
 router = APIRouter(
@@ -86,4 +93,23 @@ def change_password(
 
     return {
         "message": "Password updated successfully"
+    }
+
+
+@router.post("/feedback")
+def submit_feedback(
+    data: FeedbackRequest,
+    current_user: User = Depends(get_current_user)
+):
+
+    try:
+        send_feedback_email(current_user.email, data.message)
+    except RuntimeError:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to send feedback right now. Please try again later."
+        )
+
+    return {
+        "message": "Feedback sent"
     }

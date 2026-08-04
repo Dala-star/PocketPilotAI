@@ -81,6 +81,15 @@ export const updatePreferences = async (data) => {
 };
 
 
+export const submitFeedback = async (message) => {
+
+    const response = await API.post("/users/feedback", { message });
+
+    return response.data;
+
+};
+
+
 export const getNotificationPreferences = async () => {
 
     const response = await API.get("/users/notifications");

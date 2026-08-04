@@ -9,6 +9,8 @@ import {
     Alert,
     StyleSheet,
     RefreshControl,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -340,7 +342,10 @@ function IncomeScreen() {
                 onRequestClose={() => setModalVisible(false)}
             >
 
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                >
 
                     <View style={styles.modalCard}>
 
@@ -392,7 +397,7 @@ function IncomeScreen() {
 
                     </View>
 
-                </View>
+                </KeyboardAvoidingView>
 
             </Modal>
 

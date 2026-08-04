@@ -13,6 +13,10 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USERNAME)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+# Feedback from the app's Help & Feedback screen lands here. Defaults to
+# FROM_EMAIL (your own inbox) so no extra env var is required to start.
+SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", FROM_EMAIL)
+
 
 def send_password_reset_email(to_email: str, raw_token: str):
     reset_link = f"{FRONTEND_URL}/reset-password?token={raw_token}"
@@ -40,3 +44,25 @@ def send_password_reset_email(to_email: str, raw_token: str):
         server.starttls()
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
         server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+
+
+def send_feedback_email(from_user_email: str, message: str):
+    subject = "PocketPilot AI Feedback"
+    body = f"{message}\n\n---\nFrom: {from_user_email}"
+
+    msg = MIMEMultipart()
+    msg["From"] = FROM_EMAIL
+    msg["To"] = SUPPORT_EMAIL
+    msg["Reply-To"] = from_user_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    if not SMTP_HOST or not SMTP_USERNAME or not SMTP_PASSWORD:
+        raise RuntimeError(
+            "SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD must be set in .env to send email"
+        )
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.sendmail(FROM_EMAIL, SUPPORT_EMAIL, msg.as_string())
