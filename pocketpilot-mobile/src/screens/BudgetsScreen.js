@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -26,10 +26,14 @@ import {
     updateCategory,
     deleteCategory,
 } from "../api/categories";
-import { colors, fonts, spacing, radius } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
+import { fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
 function BudgetsScreen() {
+
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [tab, setTab] = useState("budgets"); // "budgets" | "categories"
 
@@ -362,51 +366,70 @@ function BudgetsScreen() {
     };
 
 
-    const renderBudget = ({ item }) => (
+    const renderBudget = ({ item }) => {
 
-        <View style={styles.row}>
+        const pct = Math.min(item.percentage || 0, 100);
+        const overBudget = (item.percentage || 0) >= 100;
 
-            <View style={styles.rowLeft}>
+        return (
 
-                <Text style={styles.rowTitle}>{getCategoryName(item.category_id)}</Text>
+            <View style={styles.row}>
 
-                <Text style={styles.rowAmount}>${Number(item.amount).toFixed(2)} / month</Text>
+                <View style={styles.rowLeft}>
 
-                <View style={styles.progressTrack}>
+                    <View style={styles.rowTitleLine}>
+                        <Text style={styles.rowTitle}>{getCategoryName(item.category_id)}</Text>
+                        {overBudget && (
+                            <View style={styles.overBadge}>
+                                <Text style={styles.overBadgeText}>Over</Text>
+                            </View>
+                        )}
+                    </View>
 
-                    <View
-                        style={[
-                            styles.progressFill,
-                            { width: `${Math.min(item.percentage || 0, 100)}%` },
-                        ]}
-                    />
+                    <Text style={styles.rowAmount}>${Number(item.amount).toFixed(2)} / month</Text>
+
+                    <View style={styles.progressTrack}>
+
+                        <View
+                            style={[
+                                styles.progressFill,
+                                {
+                                    width: `${pct}%`,
+                                    backgroundColor: overBudget ? colors.coral : colors.mint,
+                                },
+                            ]}
+                        />
+
+                    </View>
+
+                </View>
+
+                <View style={styles.rowActions}>
+
+                    <TouchableOpacity onPress={() => openEditBudget(item)}>
+                        <Ionicons name="pencil" size={18} color={colors.navy} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => confirmDeleteBudget(item.id)}>
+                        <Ionicons name="trash" size={18} color={colors.coral} />
+                    </TouchableOpacity>
 
                 </View>
 
             </View>
 
-            <View style={styles.rowActions}>
+        );
 
-                <TouchableOpacity onPress={() => openEditBudget(item)}>
-                    <Ionicons name="pencil" size={18} color={colors.navy} />
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => confirmDeleteBudget(item.id)}>
-                    <Ionicons name="trash" size={18} color={colors.coral} />
-                </TouchableOpacity>
-
-            </View>
-
-        </View>
-
-    );
+    };
 
 
     const renderCategory = ({ item }) => (
 
         <View style={styles.row}>
 
-            <Text style={styles.rowTitle}>{item.name}</Text>
+            <View style={styles.categoryDot} />
+
+            <Text style={[styles.rowTitle, styles.categoryRowTitle]}>{item.name}</Text>
 
             <View style={styles.rowActions}>
 
@@ -679,7 +702,8 @@ function BudgetsScreen() {
 
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors) {
+    return StyleSheet.create({
 
     screen: {
         flex: 1,
@@ -707,11 +731,12 @@ const styles = StyleSheet.create({
         height: 40,
         justifyContent: "center",
         alignItems: "center",
+        ...shadow.button,
     },
 
     segmentWrapper: {
         flexDirection: "row",
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
         borderColor: colors.border,
@@ -766,15 +791,16 @@ const styles = StyleSheet.create({
     },
 
     row: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.md,
         marginBottom: spacing.sm,
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        ...shadow.card,
     },
 
     rowLeft: {
@@ -782,10 +808,41 @@ const styles = StyleSheet.create({
         marginRight: spacing.sm,
     },
 
+    rowTitleLine: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.xs,
+    },
+
     rowTitle: {
         fontFamily: fonts.bodyMedium,
         color: colors.ink,
         fontSize: 15,
+    },
+
+    categoryRowTitle: {
+        flex: 1,
+    },
+
+    categoryDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.navy,
+        marginRight: spacing.sm,
+    },
+
+    overBadge: {
+        backgroundColor: colors.coralSoft,
+        borderRadius: 999,
+        paddingHorizontal: spacing.xs + 2,
+        paddingVertical: 2,
+    },
+
+    overBadgeText: {
+        fontFamily: fonts.bodyMedium,
+        color: colors.coral,
+        fontSize: 10,
     },
 
     rowAmount: {
@@ -811,21 +868,21 @@ const styles = StyleSheet.create({
 
     progressFill: {
         height: "100%",
-        backgroundColor: colors.mint,
         borderRadius: 999,
     },
 
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(16, 24, 40, 0.5)",
+        backgroundColor: colors.overlay,
         justifyContent: "flex-end",
     },
 
     modalCard: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderTopLeftRadius: radius.lg,
         borderTopRightRadius: radius.lg,
         padding: spacing.lg,
+        ...shadow.card,
     },
 
     modalTitle: {
@@ -913,6 +970,7 @@ const styles = StyleSheet.create({
         color: colors.white,
     },
 
-});
+    });
+}
 
 export default BudgetsScreen;

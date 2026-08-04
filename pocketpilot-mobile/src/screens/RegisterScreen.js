@@ -11,7 +11,7 @@ import {
 } from "react-native";
 
 import { registerUser } from "../api/auth";
-import { colors, fonts, spacing, radius } from "../theme/tokens";
+import { colors, fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
 function RegisterScreen({ navigation }) {
@@ -64,6 +64,10 @@ function RegisterScreen({ navigation }) {
 
             <View style={styles.card}>
 
+                <View style={styles.logoBadge}>
+                    <Text style={styles.logoBadgeText}>PP</Text>
+                </View>
+
                 <Text style={styles.title}>Create Account</Text>
 
                 <Text style={styles.subtitle}>Start tracking your money</Text>
@@ -99,6 +103,7 @@ function RegisterScreen({ navigation }) {
                     style={[styles.button, loading && styles.buttonDisabled]}
                     onPress={submit}
                     disabled={loading}
+                    activeOpacity={0.85}
                 >
                     <Text style={styles.buttonText}>
                         {loading ? "Creating Account..." : "Register"}
@@ -134,6 +139,30 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border,
         padding: spacing.lg,
+        shadowColor: "#0F172A",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        elevation: 2,
+    },
+
+    logoBadge: {
+        width: 52,
+        height: 52,
+        borderRadius: radius.md,
+        backgroundColor: colors.navy,
+        alignItems: "center",
+        justifyContent: "center",
+        alignSelf: "center",
+        marginBottom: spacing.sm,
+        ...shadow.button,
+    },
+
+    logoBadgeText: {
+        fontFamily: fonts.displayBold,
+        color: colors.white,
+        fontSize: 18,
+        letterSpacing: 0.5,
     },
 
     title: {
@@ -141,6 +170,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: colors.ink,
         textAlign: "center",
+        letterSpacing: -0.3,
     },
 
     subtitle: {
@@ -169,6 +199,7 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.sm + 4,
         alignItems: "center",
         marginTop: spacing.sm,
+        ...shadow.button,
     },
 
     buttonDisabled: {

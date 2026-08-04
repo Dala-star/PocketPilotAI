@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -22,10 +22,14 @@ import {
     deleteExpense,
 } from "../api/expenses";
 import { getCategories } from "../api/categories";
-import { colors, fonts, spacing, radius } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
+import { fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
 function ExpensesScreen() {
+
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [expenses, setExpenses] = useState([]);
 
@@ -262,6 +266,10 @@ function ExpensesScreen() {
 
         <View style={styles.row}>
 
+            <View style={styles.rowIcon}>
+                <Ionicons name="cart" size={16} color={colors.coral} />
+            </View>
+
             <View style={styles.rowLeft}>
 
                 <Text style={styles.rowCategory}>
@@ -317,13 +325,16 @@ function ExpensesScreen() {
 
             </View>
 
-            <TextInput
-                style={styles.searchInput}
-                placeholder="Search expenses..."
-                placeholderTextColor={colors.inkSoft}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-            />
+            <View style={styles.searchWrapper}>
+                <Ionicons name="search" size={16} color={colors.inkSoft} style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search expenses..."
+                    placeholderTextColor={colors.inkSoft}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+            </View>
 
             <ScrollView
                 horizontal
@@ -499,7 +510,8 @@ function ExpensesScreen() {
 
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors) {
+    return StyleSheet.create({
 
     screen: {
         flex: 1,
@@ -527,18 +539,29 @@ const styles = StyleSheet.create({
         height: 40,
         justifyContent: "center",
         alignItems: "center",
+        ...shadow.button,
     },
 
-    searchInput: {
+    searchWrapper: {
+        flexDirection: "row",
+        alignItems: "center",
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: radius.sm,
-        paddingVertical: spacing.xs + 2,
+        backgroundColor: colors.surface,
         paddingHorizontal: spacing.md,
+        marginBottom: spacing.xs,
+    },
+
+    searchIcon: {
+        marginRight: spacing.xs,
+    },
+
+    searchInput: {
+        flex: 1,
+        paddingVertical: spacing.xs + 4,
         fontFamily: fonts.body,
         color: colors.ink,
-        backgroundColor: colors.white,
-        marginBottom: spacing.xs,
         fontSize: 14,
     },
 
@@ -558,7 +581,7 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         borderWidth: 1,
         borderColor: colors.border,
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         flexShrink: 0,
         alignSelf: "flex-start",
     },
@@ -608,15 +631,25 @@ const styles = StyleSheet.create({
     },
 
     row: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.md,
         marginBottom: spacing.sm,
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
+        ...shadow.card,
+    },
+
+    rowIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.coralSoft,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: spacing.sm,
     },
 
     rowLeft: {
@@ -652,15 +685,16 @@ const styles = StyleSheet.create({
 
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(16, 24, 40, 0.5)",
+        backgroundColor: colors.overlay,
         justifyContent: "flex-end",
     },
 
     modalCard: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderTopLeftRadius: radius.lg,
         borderTopRightRadius: radius.lg,
         padding: spacing.lg,
+        ...shadow.card,
     },
 
     modalTitle: {
@@ -748,6 +782,7 @@ const styles = StyleSheet.create({
         color: colors.white,
     },
 
-});
+    });
+}
 
 export default ExpensesScreen;

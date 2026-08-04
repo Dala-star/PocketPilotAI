@@ -1,12 +1,13 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
 
 import DashboardScreen from "../screens/DashboardScreen";
 import ExpensesScreen from "../screens/ExpensesScreen";
 import IncomeScreen from "../screens/IncomeScreen";
 import BudgetsScreen from "../screens/BudgetsScreen";
+import ChatScreen from "../screens/ChatScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Tab = createBottomTabNavigator();
@@ -16,10 +17,13 @@ const ICONS = {
     Expenses: "arrow-down-circle",
     Income: "arrow-up-circle",
     Budgets: "pie-chart",
+    Chat: "chatbubble-ellipses",
     Settings: "settings",
 };
 
 function MainTabs() {
+
+    const { colors } = useTheme();
 
     return (
 
@@ -34,7 +38,7 @@ function MainTabs() {
                 tabBarInactiveTintColor: colors.inkSoft,
 
                 tabBarStyle: {
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.surface,
                     borderTopColor: colors.border,
                 },
 
@@ -63,6 +67,8 @@ function MainTabs() {
             <Tab.Screen name="Income" component={IncomeScreen} />
 
             <Tab.Screen name="Budgets" component={BudgetsScreen} />
+
+            <Tab.Screen name="Chat" component={ChatScreen} />
 
             <Tab.Screen name="Settings" component={SettingsScreen} />
 

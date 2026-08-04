@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -20,10 +20,14 @@ import {
     updateIncome,
     deleteIncome,
 } from "../api/income";
-import { colors, fonts, spacing, radius } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
+import { fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
 function IncomeScreen() {
+
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [income, setIncome] = useState([]);
 
@@ -230,6 +234,10 @@ function IncomeScreen() {
 
         <View style={styles.row}>
 
+            <View style={styles.rowIcon}>
+                <Ionicons name="trending-up" size={16} color={colors.mint} />
+            </View>
+
             <View style={styles.rowLeft}>
 
                 <Text style={styles.rowSource}>{item.source}</Text>
@@ -283,13 +291,16 @@ function IncomeScreen() {
 
             </View>
 
-            <TextInput
-                style={styles.searchInput}
-                placeholder="Search income..."
-                placeholderTextColor={colors.inkSoft}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-            />
+            <View style={styles.searchWrapper}>
+                <Ionicons name="search" size={16} color={colors.inkSoft} style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search income..."
+                    placeholderTextColor={colors.inkSoft}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+            </View>
 
             <FlatList
                 data={filteredIncome}
@@ -389,7 +400,8 @@ function IncomeScreen() {
 
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors) {
+    return StyleSheet.create({
 
     screen: {
         flex: 1,
@@ -417,18 +429,29 @@ const styles = StyleSheet.create({
         height: 40,
         justifyContent: "center",
         alignItems: "center",
+        ...shadow.button,
     },
 
-    searchInput: {
+    searchWrapper: {
+        flexDirection: "row",
+        alignItems: "center",
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: radius.sm,
-        paddingVertical: spacing.xs + 2,
+        backgroundColor: colors.surface,
         paddingHorizontal: spacing.md,
+        marginBottom: spacing.sm,
+    },
+
+    searchIcon: {
+        marginRight: spacing.xs,
+    },
+
+    searchInput: {
+        flex: 1,
+        paddingVertical: spacing.xs + 4,
         fontFamily: fonts.body,
         color: colors.ink,
-        backgroundColor: colors.white,
-        marginBottom: spacing.sm,
         fontSize: 14,
     },
 
@@ -462,15 +485,25 @@ const styles = StyleSheet.create({
     },
 
     row: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.md,
         marginBottom: spacing.sm,
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
+        ...shadow.card,
+    },
+
+    rowIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.mintSoft,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: spacing.sm,
     },
 
     rowLeft: {
@@ -506,15 +539,16 @@ const styles = StyleSheet.create({
 
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(16, 24, 40, 0.5)",
+        backgroundColor: colors.overlay,
         justifyContent: "flex-end",
     },
 
     modalCard: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderTopLeftRadius: radius.lg,
         borderTopRightRadius: radius.lg,
         padding: spacing.lg,
+        ...shadow.card,
     },
 
     modalTitle: {
@@ -564,6 +598,7 @@ const styles = StyleSheet.create({
         color: colors.white,
     },
 
-});
+    });
+}
 
 export default IncomeScreen;

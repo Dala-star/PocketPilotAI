@@ -1,16 +1,22 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { PieChart } from "react-native-gifted-charts";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getDashboardData } from "../api/dashboard";
-import { colors, fonts, spacing, radius } from "../theme/tokens";
-
-const PALETTE = [colors.mint, colors.coral, colors.amber, colors.navy, "#5b8def", "#9b6bd6"];
+import { useTheme } from "../context/ThemeContext";
+import { fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
 function DashboardScreen() {
+
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const PALETTE = useMemo(
+        () => [colors.mint, colors.coral, colors.amber, colors.navy, "#5b8def", "#9b6bd6"],
+        [colors]
+    );
 
     const [data, setData] = useState({
         balance: 0,
@@ -195,6 +201,22 @@ function DashboardScreen() {
 
                         <View key={`${item.type}-${item.id}`} style={styles.transactionRow}>
 
+                            <View
+                                style={[
+                                    styles.transactionIcon,
+                                    {
+                                        backgroundColor:
+                                            item.type === "income" ? colors.mintSoft : colors.coralSoft,
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name={item.type === "income" ? "arrow-up" : "arrow-down"}
+                                    size={16}
+                                    color={item.type === "income" ? colors.mint : colors.coral}
+                                />
+                            </View>
+
                             <View style={styles.transactionLeft}>
 
                                 <Text style={styles.transactionTitle}>{item.title}</Text>
@@ -229,7 +251,8 @@ function DashboardScreen() {
 
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors) {
+    return StyleSheet.create({
 
     screen: {
         flex: 1,
@@ -262,11 +285,12 @@ const styles = StyleSheet.create({
 
     summaryCard: {
         flex: 1,
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.md,
+        ...shadow.card,
     },
 
     summaryCardFirst: {},
@@ -287,12 +311,13 @@ const styles = StyleSheet.create({
     },
 
     card: {
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.md,
         marginBottom: spacing.md,
+        ...shadow.card,
     },
 
     sectionTitle: {
@@ -350,11 +375,19 @@ const styles = StyleSheet.create({
 
     transactionRow: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
         paddingVertical: spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
+    },
+
+    transactionIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: spacing.sm,
     },
 
     transactionLeft: {
@@ -379,6 +412,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
 
-});
+    });
+}
 
 export default DashboardScreen;

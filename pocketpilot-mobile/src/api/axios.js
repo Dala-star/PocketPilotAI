@@ -1,8 +1,13 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
+
+const API_URL =
+    Constants.expoConfig?.extra?.apiUrl ||
+    "http://localhost:8000";
 
 const API = axios.create({
-    baseURL: "http://10.15.24.81:8000",
+    baseURL: API_URL,
 });
 
 API.interceptors.request.use(

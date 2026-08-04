@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import {
     View,
     Text,
@@ -9,32 +9,54 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
-import { AuthContext } from "../context/AuthContext";
-import { loginUser } from "../api/auth";
+import { resetPassword } from "../api/auth";
 import { colors, fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
-function LoginScreen({ navigation }) {
+// route.params.token is populated automatically when the app is opened via
+// the deep link in the reset email. Pasting the code manually still works
+// as a fallback for testing or if the link doesn't open the app directly.
+function ResetPasswordScreen({ navigation, route }) {
 
-    const { login } = useContext(AuthContext);
+    const [token, setToken] = useState(route?.params?.token || "");
 
-    const [form, setForm] = useState({
-        email: "",
-        password: "",
-    });
+    const [newPassword, setNewPassword] = useState("");
+
+    const [confirmPassword, setConfirmPassword] = useState("");
 
     const [loading, setLoading] = useState(false);
 
 
     const submit = async () => {
 
-        if (!form.email.trim() || !form.password) {
+        if (!token.trim()) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-            Alert.alert("Missing info", "Enter both your email and password.");
+            Alert.alert("Missing code", "Paste the reset code from your email.");
+
+            return;
+
+        }
+
+        if (newPassword.length < 8) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Password too short", "New password must be at least 8 characters.");
+
+            return;
+
+        }
+
+        if (newPassword !== confirmPassword) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Passwords don't match", "Make sure both passwords match.");
 
             return;
 
@@ -44,9 +66,13 @@ function LoginScreen({ navigation }) {
 
             setLoading(true);
 
-            const response = await loginUser(form.email.trim(), form.password);
+            await resetPassword(token.trim(), newPassword);
 
-            await login(response.access_token);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            Alert.alert("Success", "Your password has been reset. Please log in.", [
+                { text: "OK", onPress: () => navigation.navigate("Login") },
+            ]);
 
         } catch (error) {
 
@@ -55,8 +81,8 @@ function LoginScreen({ navigation }) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
             Alert.alert(
-                "Login failed",
-                error.response?.data?.detail || "Invalid login"
+                "Reset failed",
+                error.response?.data?.detail || "That reset link is invalid or expired."
             );
 
         } finally {
@@ -75,41 +101,51 @@ function LoginScreen({ navigation }) {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
 
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+            >
+                <Ionicons name="arrow-back" size={22} color={colors.ink} />
+            </TouchableOpacity>
+
             <View style={styles.card}>
 
-                <View style={styles.logoBadge}>
-                    <Text style={styles.logoBadgeText}>PP</Text>
+                <View style={styles.iconBadge}>
+                    <Ionicons name="lock-open-outline" size={24} color={colors.white} />
                 </View>
 
-                <Text style={styles.title}>PocketPilot AI</Text>
+                <Text style={styles.title}>Set a new password</Text>
 
-                <Text style={styles.subtitle}>Log in to your account</Text>
+                <Text style={styles.subtitle}>
+                    Paste the reset code from your email, then choose a new password.
+                </Text>
 
                 <TextInput
                     style={styles.input}
-                    placeholder="Email"
+                    placeholder="Reset code"
                     placeholderTextColor={colors.inkSoft}
                     autoCapitalize="none"
-                    keyboardType="email-address"
-                    value={form.email}
-                    onChangeText={(text) => setForm({ ...form, email: text })}
+                    value={token}
+                    onChangeText={setToken}
                 />
 
                 <TextInput
                     style={styles.input}
-                    placeholder="Password"
+                    placeholder="New password"
                     placeholderTextColor={colors.inkSoft}
                     secureTextEntry
-                    value={form.password}
-                    onChangeText={(text) => setForm({ ...form, password: text })}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
                 />
 
-                <TouchableOpacity
-                    onPress={() => navigation.navigate("ForgotPassword")}
-                    style={styles.forgotLink}
-                >
-                    <Text style={styles.forgotLinkText}>Forgot password?</Text>
-                </TouchableOpacity>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Confirm new password"
+                    placeholderTextColor={colors.inkSoft}
+                    secureTextEntry
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                />
 
                 <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
@@ -118,13 +154,13 @@ function LoginScreen({ navigation }) {
                     activeOpacity={0.85}
                 >
                     <Text style={styles.buttonText}>
-                        {loading ? "Logging in..." : "Login"}
+                        {loading ? "Resetting..." : "Reset password"}
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+                <TouchableOpacity onPress={() => navigation.navigate("Login")}>
                     <Text style={styles.link}>
-                        Don't have an account? <Text style={styles.linkAccent}>Register</Text>
+                        Remembered it? <Text style={styles.linkAccent}>Back to login</Text>
                     </Text>
                 </TouchableOpacity>
 
@@ -145,20 +181,29 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg,
     },
 
+    backButton: {
+        position: "absolute",
+        top: spacing.xl,
+        left: spacing.lg,
+        width: 40,
+        height: 40,
+        borderRadius: radius.pill,
+        backgroundColor: colors.white,
+        alignItems: "center",
+        justifyContent: "center",
+        ...shadow.card,
+    },
+
     card: {
         backgroundColor: colors.white,
         borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderSoft,
         padding: spacing.lg,
-        shadowColor: "#0F172A",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 14,
-        elevation: 2,
+        ...shadow.card,
     },
 
-    logoBadge: {
+    iconBadge: {
         width: 52,
         height: 52,
         borderRadius: radius.md,
@@ -170,16 +215,9 @@ const styles = StyleSheet.create({
         ...shadow.button,
     },
 
-    logoBadgeText: {
-        fontFamily: fonts.displayBold,
-        color: colors.white,
-        fontSize: 18,
-        letterSpacing: 0.5,
-    },
-
     title: {
         fontFamily: fonts.displayBold,
-        fontSize: 24,
+        fontSize: 22,
         color: colors.ink,
         textAlign: "center",
         letterSpacing: -0.3,
@@ -192,6 +230,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginTop: spacing.xs,
         marginBottom: spacing.md,
+        lineHeight: 19,
     },
 
     input: {
@@ -203,17 +242,6 @@ const styles = StyleSheet.create({
         fontFamily: fonts.body,
         color: colors.ink,
         marginBottom: spacing.sm,
-    },
-
-    forgotLink: {
-        alignSelf: "flex-end",
-        marginBottom: spacing.xs,
-    },
-
-    forgotLinkText: {
-        fontFamily: fonts.bodyMedium,
-        color: colors.navySoft,
-        fontSize: 13,
     },
 
     button: {
@@ -250,4 +278,4 @@ const styles = StyleSheet.create({
 
 });
 
-export default LoginScreen;
+export default ResetPasswordScreen;
