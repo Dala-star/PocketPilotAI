@@ -581,7 +581,7 @@ function BudgetsScreen() {
 
                 <KeyboardAvoidingView
                     style={styles.modalOverlay}
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
                 >
 
                     <View style={styles.modalCard}>
@@ -666,7 +666,7 @@ function BudgetsScreen() {
 
                 <KeyboardAvoidingView
                     style={styles.modalOverlay}
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
                 >
 
                     <View style={styles.modalCard}>
@@ -894,6 +894,7 @@ function createStyles(colors, insets) {
         borderTopLeftRadius: radius.lg,
         borderTopRightRadius: radius.lg,
         padding: spacing.lg,
+        paddingBottom: insets.bottom + spacing.lg,
         ...shadow.card,
     },
 
