@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.daladiva.pocketpilotmobile"
     },
     "web": {
       "output": "single",
@@ -40,7 +41,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "https://pocketpilotai-production.up.railway.app"
+      "apiUrl": "https://pocketpilotai-production.up.railway.app",
+      "eas": {
+        "projectId": "9eeffd37-9252-45fd-b03c-7292cb5ad5ae"
+      }
     }
   }
 }
