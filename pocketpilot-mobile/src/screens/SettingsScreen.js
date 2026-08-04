@@ -1,4 +1,4 @@
-import { useContext, useState, useCallback, useMemo } from "react";
+import { useContext, useState, useEffect, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -7,16 +7,36 @@ import {
     ScrollView,
     Modal,
     Alert,
+    Switch,
+    Linking,
     StyleSheet,
     RefreshControl,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as LocalAuthentication from "expo-local-authentication";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getProfile, updateProfile, changePassword } from "../api/settings";
+import {
+    getProfile,
+    updateProfile,
+    changeEmail,
+    changePassword,
+    deleteAccount,
+    getPreferences,
+    updatePreferences,
+    getNotificationPreferences,
+    updateNotificationPreferences,
+} from "../api/settings";
+import { getExpenses } from "../api/expenses";
+import { getIncome } from "../api/income";
+import { getCategories } from "../api/categories";
 import { fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
@@ -26,22 +46,156 @@ const THEME_OPTIONS = [
     { key: "system", label: "Match device", icon: "phone-portrait-outline" },
 ];
 
+const CURRENCY_OPTIONS = [
+    { key: "USD", label: "US Dollar", symbol: "$" },
+    { key: "EUR", label: "Euro", symbol: "€" },
+    { key: "GBP", label: "British Pound", symbol: "£" },
+    { key: "JPY", label: "Japanese Yen", symbol: "¥" },
+    { key: "UGX", label: "Ugandan Shilling", symbol: "USh" },
+    { key: "INR", label: "Indian Rupee", symbol: "₹" },
+];
+
+const BUDGET_PERIOD_OPTIONS = [
+    { key: "weekly", label: "Weekly" },
+    { key: "monthly", label: "Monthly" },
+];
+
+const START_OF_WEEK_OPTIONS = [
+    { key: "sunday", label: "Sunday" },
+    { key: "monday", label: "Monday" },
+];
+
+const BIOMETRIC_STORAGE_KEY = "@pocketpilot_biometric_enabled";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const SUPPORT_EMAIL = "pocketpilotai.help@gmail.com";
+
+const PRIVACY_POLICY_TEXT = `Last updated: August 2026
+
+PocketPilot AI ("we", "our", "the app") helps you track income, expenses, and budgets, and offers an AI assistant to answer questions about your finances.
+
+INFORMATION WE COLLECT
+- Account info: name, email, and password (stored as a salted hash, never in plain text).
+- Financial data you enter: income, expenses, categories, and budgets.
+- Chat messages you send to the Finance Assistant, which may be sent to our AI provider to generate a response.
+- Basic device/usage data (crash logs, app version) used only to keep the app working.
+
+HOW WE USE IT
+- To show you your dashboard, transactions, and budgets.
+- To answer your questions in the Finance Assistant.
+- To send the notifications you've opted into (budget alerts, weekly digest, bill reminders).
+- To fix bugs and improve the app.
+
+WHAT WE DON'T DO
+- We don't sell your financial data.
+- We don't share your data with advertisers.
+
+DATA STORAGE & SECURITY
+Your data is stored on our servers with industry-standard encryption in transit. You can export your data or delete your account at any time from Settings.
+
+YOUR CHOICES
+- Export your data (Settings > Data > Export Data).
+- Delete your account and all associated data (Settings > Danger Zone > Delete Account).
+- Turn off any notification type individually.
+
+CONTACT
+Questions about this policy? Reach us at ${SUPPORT_EMAIL}.
+
+This is a starting template — have it reviewed by counsel before relying on it for a production app, especially given the financial data involved.`;
+
+const TERMS_TEXT = `Last updated: August 2026
+
+By using PocketPilot AI, you agree to the following:
+
+1. YOUR ACCOUNT
+You're responsible for keeping your login credentials secure and for all activity under your account.
+
+2. THE SERVICE
+PocketPilot AI is a personal budgeting tool. The Finance Assistant provides general information based on the data you enter — it is not financial, tax, or legal advice, and you should consult a professional before making financial decisions.
+
+3. YOUR DATA
+You own the financial data you enter. We store it to provide the app's features and will delete it if you delete your account.
+
+4. ACCEPTABLE USE
+Don't use the app to store or transmit unlawful content, attempt to breach its security, or interfere with other users.
+
+5. AVAILABILITY
+We aim to keep the app available but don't guarantee uninterrupted access. Features may change over time.
+
+6. LIMITATION OF LIABILITY
+The app is provided "as is." We aren't liable for financial decisions made using information from the app.
+
+7. CHANGES
+We may update these terms as the app evolves; continued use means you accept the current version.
+
+CONTACT
+Questions? Reach us at ${SUPPORT_EMAIL}.
+
+This is a starting template — have it reviewed by counsel before relying on it for a production app.`;
+
 
 function SettingsScreen() {
 
     const { logout } = useContext(AuthContext);
     const { colors, preference, setThemePreference } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const insets = useSafeAreaInsets();
+    const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
 
     const [profile, setProfile] = useState({ name: "", email: "" });
 
     const [profileModalVisible, setProfileModalVisible] = useState(false);
-    const [profileForm, setProfileForm] = useState({ name: "", email: "" });
+    const [profileForm, setProfileForm] = useState({ name: "" });
     const [savingProfile, setSavingProfile] = useState(false);
 
+    const [emailModalVisible, setEmailModalVisible] = useState(false);
+    const [emailForm, setEmailForm] = useState({ newEmail: "", password: "" });
+    const [savingEmail, setSavingEmail] = useState(false);
+
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-    const [password, setPassword] = useState({ currentPassword: "", newPassword: "" });
+    const [password, setPassword] = useState({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+    });
     const [savingPassword, setSavingPassword] = useState(false);
+
+    const [preferences, setPreferences] = useState({
+        currency: "USD",
+        budgetPeriod: "monthly",
+        startOfWeek: "sunday",
+    });
+
+    const [notifications, setNotifications] = useState({
+        budgetAlerts: true,
+        weeklyDigest: true,
+        billReminders: true,
+    });
+    const [notificationsSaving, setNotificationsSaving] = useState(false);
+
+    const [biometricAvailable, setBiometricAvailable] = useState(false);
+    const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+    const [exporting, setExporting] = useState(false);
+
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleteForm, setDeleteForm] = useState({ confirmText: "", password: "" });
+    const [deletingAccount, setDeletingAccount] = useState(false);
+
+    const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+    const [termsModalVisible, setTermsModalVisible] = useState(false);
+    const [helpModalVisible, setHelpModalVisible] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState("");
+
+    // Generic picker modal state, reused for currency / budget period /
+    // start of week so we don't need three near-identical modals.
+    const [pickerModal, setPickerModal] = useState({
+        visible: false,
+        title: "",
+        options: [],
+        selectedKey: null,
+        onSelect: () => {},
+    });
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -78,29 +232,108 @@ function SettingsScreen() {
     };
 
 
+    const loadPreferences = async () => {
+
+        try {
+
+            const data = await getPreferences();
+
+            setPreferences({
+                currency: data.currency || "USD",
+                budgetPeriod: data.budget_period || "monthly",
+                startOfWeek: data.start_of_week || "sunday",
+            });
+
+        } catch (error) {
+
+            console.log(error);
+
+        }
+
+    };
+
+
+    const loadNotifications = async () => {
+
+        try {
+
+            const data = await getNotificationPreferences();
+
+            setNotifications({
+                budgetAlerts: data.budget_alerts ?? true,
+                weeklyDigest: data.weekly_digest ?? true,
+                billReminders: data.bill_reminders ?? true,
+            });
+
+        } catch (error) {
+
+            console.log(error);
+
+        }
+
+    };
+
+
+    const loadAll = async () => {
+
+        await Promise.all([loadProfile(), loadPreferences(), loadNotifications()]);
+
+    };
+
+
     useFocusEffect(
         useCallback(() => {
 
-            loadProfile();
+            loadAll();
 
         }, [])
     );
+
+
+    // Biometric hardware check + stored preference — this is device-local,
+    // not synced to the backend, so it only needs to run once on mount.
+    useEffect(() => {
+
+        (async () => {
+
+            try {
+
+                const hasHardware = await LocalAuthentication.hasHardwareAsync();
+                const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+                setBiometricAvailable(hasHardware && isEnrolled);
+
+                const stored = await AsyncStorage.getItem(BIOMETRIC_STORAGE_KEY);
+
+                setBiometricEnabled(stored === "true");
+
+            } catch (error) {
+
+                console.log(error);
+
+            }
+
+        })();
+
+    }, []);
 
 
     const onRefresh = async () => {
 
         setRefreshing(true);
 
-        await loadProfile();
+        await loadAll();
 
         setRefreshing(false);
 
     };
 
 
+    // ---- Profile ----
+
     const openProfileModal = () => {
 
-        setProfileForm({ name: profile.name, email: profile.email });
+        setProfileForm({ name: profile.name });
 
         setProfileModalVisible(true);
 
@@ -109,11 +342,11 @@ function SettingsScreen() {
 
     const saveProfile = async () => {
 
-        if (!profileForm.name.trim() || !profileForm.email.trim()) {
+        if (!profileForm.name.trim()) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-            Alert.alert("Missing info", "Name and email are both required.");
+            Alert.alert("Missing info", "Enter your name.");
 
             return;
 
@@ -123,7 +356,7 @@ function SettingsScreen() {
 
             setSavingProfile(true);
 
-            await updateProfile(profileForm);
+            await updateProfile({ name: profileForm.name });
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -151,9 +384,84 @@ function SettingsScreen() {
     };
 
 
+    // ---- Email ----
+
+    const openEmailModal = () => {
+
+        setEmailForm({ newEmail: "", password: "" });
+
+        setEmailModalVisible(true);
+
+    };
+
+
+    const submitEmailChange = async () => {
+
+        if (!emailForm.newEmail.trim() || !emailForm.password) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Missing info", "Enter your new email and current password.");
+
+            return;
+
+        }
+
+        if (!EMAIL_PATTERN.test(emailForm.newEmail.trim())) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Invalid email", "Enter a valid email address.");
+
+            return;
+
+        }
+
+        try {
+
+            setSavingEmail(true);
+
+            await changeEmail({
+                newEmail: emailForm.newEmail.trim(),
+                password: emailForm.password,
+            });
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            setEmailModalVisible(false);
+
+            Alert.alert(
+                "Check your inbox",
+                "We've sent a confirmation link to your new email address."
+            );
+
+            loadProfile();
+
+        } catch (error) {
+
+            console.log(error);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            Alert.alert(
+                "Unable to update email",
+                error.response?.data?.detail || "Something went wrong."
+            );
+
+        } finally {
+
+            setSavingEmail(false);
+
+        }
+
+    };
+
+
+    // ---- Password ----
+
     const openPasswordModal = () => {
 
-        setPassword({ currentPassword: "", newPassword: "" });
+        setPassword({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
         setPasswordModalVisible(true);
 
@@ -162,11 +470,11 @@ function SettingsScreen() {
 
     const submitPasswordChange = async () => {
 
-        if (!password.currentPassword || !password.newPassword) {
+        if (!password.currentPassword || !password.newPassword || !password.confirmPassword) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-            Alert.alert("Missing info", "Enter both your current and new password.");
+            Alert.alert("Missing info", "Fill in all three password fields.");
 
             return;
 
@@ -177,6 +485,16 @@ function SettingsScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
             Alert.alert("Password too short", "New password must be at least 8 characters.");
+
+            return;
+
+        }
+
+        if (password.newPassword !== password.confirmPassword) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Passwords don't match", "Double check your new password.");
 
             return;
 
@@ -197,7 +515,7 @@ function SettingsScreen() {
 
             setPasswordModalVisible(false);
 
-            setPassword({ currentPassword: "", newPassword: "" });
+            setPassword({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
         } catch (error) {
 
@@ -218,6 +536,309 @@ function SettingsScreen() {
 
     };
 
+
+    // ---- Preferences (currency / budget period / start of week) ----
+
+    const savePreference = async (key, value) => {
+
+        const next = { ...preferences, [key]: value };
+
+        setPreferences(next);
+
+        setPickerModal((prev) => ({ ...prev, visible: false }));
+
+        try {
+
+            await updatePreferences(next);
+
+            Haptics.selectionAsync();
+
+        } catch (error) {
+
+            console.log(error);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            Alert.alert(
+                "Unable to save preference",
+                error.response?.data?.detail || "Something went wrong."
+            );
+
+            loadPreferences();
+
+        }
+
+    };
+
+
+    const openCurrencyPicker = () => {
+
+        setPickerModal({
+            visible: true,
+            title: "Currency",
+            options: CURRENCY_OPTIONS.map((c) => ({ key: c.key, label: `${c.label} (${c.symbol})` })),
+            selectedKey: preferences.currency,
+            onSelect: (key) => savePreference("currency", key),
+        });
+
+    };
+
+
+    const openBudgetPeriodPicker = () => {
+
+        setPickerModal({
+            visible: true,
+            title: "Default Budget Period",
+            options: BUDGET_PERIOD_OPTIONS,
+            selectedKey: preferences.budgetPeriod,
+            onSelect: (key) => savePreference("budgetPeriod", key),
+        });
+
+    };
+
+
+    const openStartOfWeekPicker = () => {
+
+        setPickerModal({
+            visible: true,
+            title: "Start of Week",
+            options: START_OF_WEEK_OPTIONS,
+            selectedKey: preferences.startOfWeek,
+            onSelect: (key) => savePreference("startOfWeek", key),
+        });
+
+    };
+
+
+    // ---- Notifications ----
+
+    const toggleNotification = async (key) => {
+
+        const next = { ...notifications, [key]: !notifications[key] };
+
+        setNotifications(next);
+
+        Haptics.selectionAsync();
+
+        try {
+
+            setNotificationsSaving(true);
+
+            await updateNotificationPreferences(next);
+
+        } catch (error) {
+
+            console.log(error);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            Alert.alert(
+                "Unable to save",
+                error.response?.data?.detail || "Something went wrong."
+            );
+
+            setNotifications(notifications);
+
+        } finally {
+
+            setNotificationsSaving(false);
+
+        }
+
+    };
+
+
+    // ---- Biometric unlock (device-local) ----
+
+    const toggleBiometric = async (value) => {
+
+        if (value) {
+
+            try {
+
+                const result = await LocalAuthentication.authenticateAsync({
+                    promptMessage: "Confirm to enable biometric unlock",
+                });
+
+                if (!result.success) return;
+
+            } catch (error) {
+
+                console.log(error);
+
+                Alert.alert("Unable to verify", "Please try again.");
+
+                return;
+
+            }
+
+        }
+
+        setBiometricEnabled(value);
+
+        Haptics.selectionAsync();
+
+        await AsyncStorage.setItem(BIOMETRIC_STORAGE_KEY, value ? "true" : "false");
+
+    };
+
+
+    // ---- Export data ----
+
+    const csvEscape = (value) => {
+
+        const text = String(value ?? "");
+
+        if (/[",\n]/.test(text)) {
+
+            return `"${text.replace(/"/g, '""')}"`;
+
+        }
+
+        return text;
+
+    };
+
+
+    const handleExport = async () => {
+
+        try {
+
+            setExporting(true);
+
+            const [expenseData, incomeData, categoryData] = await Promise.all([
+                getExpenses(),
+                getIncome(),
+                getCategories(),
+            ]);
+
+            const categoryName = (id) =>
+                categoryData.find((c) => c.id === id)?.name || "Unknown";
+
+            const rows = [["Type", "Date", "Category / Source", "Description", "Amount"]];
+
+            expenseData.forEach((item) => {
+                rows.push([
+                    "Expense",
+                    item.date || item.created_at || "",
+                    categoryName(item.category_id),
+                    item.description || "",
+                    item.amount,
+                ]);
+            });
+
+            incomeData.forEach((item) => {
+                rows.push([
+                    "Income",
+                    item.date || item.created_at || "",
+                    item.source,
+                    item.description || "",
+                    item.amount,
+                ]);
+            });
+
+            const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+
+            const file = new File(Paths.document, "pocketpilot-export.csv");
+
+            file.write(csv);
+
+            const canShare = await Sharing.isAvailableAsync();
+
+            if (canShare) {
+
+                await Sharing.shareAsync(file.uri, { mimeType: "text/csv" });
+
+            } else {
+
+                Alert.alert("Export ready", `Saved to ${file.uri}`);
+
+            }
+
+        } catch (error) {
+
+            console.log(error);
+
+            Alert.alert(
+                "Export failed",
+                error.response?.data?.detail || "Something went wrong."
+            );
+
+        } finally {
+
+            setExporting(false);
+
+        }
+
+    };
+
+
+    // ---- Delete account ----
+
+    const openDeleteModal = () => {
+
+        setDeleteForm({ confirmText: "", password: "" });
+
+        setDeleteModalVisible(true);
+
+    };
+
+
+    const submitDeleteAccount = async () => {
+
+        if (deleteForm.confirmText.trim().toUpperCase() !== "DELETE") {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Type DELETE to confirm", "This action can't be undone.");
+
+            return;
+
+        }
+
+        if (!deleteForm.password) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Password required", "Enter your password to confirm.");
+
+            return;
+
+        }
+
+        try {
+
+            setDeletingAccount(true);
+
+            await deleteAccount(deleteForm.password);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            setDeleteModalVisible(false);
+
+            logout();
+
+        } catch (error) {
+
+            console.log(error);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            Alert.alert(
+                "Unable to delete account",
+                error.response?.data?.detail || "Something went wrong."
+            );
+
+        } finally {
+
+            setDeletingAccount(false);
+
+        }
+
+    };
+
+
+    // ---- Logout / theme ----
 
     const confirmLogout = () => {
 
@@ -242,6 +863,65 @@ function SettingsScreen() {
         setThemePreference(key);
 
     };
+
+
+    const openHelpModal = () => {
+
+        setFeedbackMessage("");
+
+        setHelpModalVisible(true);
+
+    };
+
+
+    const sendFeedback = () => {
+
+        if (!feedbackMessage.trim()) {
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            Alert.alert("Nothing to send", "Write a quick note first.");
+
+            return;
+
+        }
+
+        const subject = encodeURIComponent("PocketPilot AI Feedback");
+
+        const body = encodeURIComponent(
+            `${feedbackMessage.trim()}\n\n---\nFrom: ${profile.email || "unknown"}`
+        );
+
+        const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+
+        Linking.openURL(mailto)
+            .then(() => {
+
+                setHelpModalVisible(false);
+
+                setFeedbackMessage("");
+
+            })
+            .catch(() => {
+
+                Alert.alert(
+                    "No mail app found",
+                    `Email us directly at ${SUPPORT_EMAIL}.`
+                );
+
+            });
+
+    };
+
+
+    const currentCurrencyLabel =
+        CURRENCY_OPTIONS.find((c) => c.key === preferences.currency)?.symbol || preferences.currency;
+
+    const currentBudgetPeriodLabel =
+        BUDGET_PERIOD_OPTIONS.find((o) => o.key === preferences.budgetPeriod)?.label || "";
+
+    const currentStartOfWeekLabel =
+        START_OF_WEEK_OPTIONS.find((o) => o.key === preferences.startOfWeek)?.label || "";
 
 
     return (
@@ -288,6 +968,16 @@ function SettingsScreen() {
 
                 <View style={styles.divider} />
 
+                <TouchableOpacity style={styles.row} onPress={openEmailModal}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="mail-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Change Email</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
                 <TouchableOpacity style={styles.row} onPress={openPasswordModal}>
                     <View style={styles.rowIconWrap}>
                         <Ionicons name="lock-closed-outline" size={18} color={colors.navy} />
@@ -295,6 +985,121 @@ function SettingsScreen() {
                     <Text style={styles.rowLabel}>Change Password</Text>
                     <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
                 </TouchableOpacity>
+
+            </View>
+
+            <Text style={styles.sectionLabel}>PREFERENCES</Text>
+
+            <View style={styles.card}>
+
+                <TouchableOpacity style={styles.row} onPress={openCurrencyPicker}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="cash-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Currency</Text>
+                    <Text style={styles.rowValue}>{currentCurrencyLabel}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity style={styles.row} onPress={openBudgetPeriodPicker}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="calendar-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Default Budget Period</Text>
+                    <Text style={styles.rowValue}>{currentBudgetPeriodLabel}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity style={styles.row} onPress={openStartOfWeekPicker}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="today-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Start of Week</Text>
+                    <Text style={styles.rowValue}>{currentStartOfWeekLabel}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+            </View>
+
+            <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
+
+            <View style={styles.card}>
+
+                <View style={styles.row}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="alert-circle-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Budget Alerts</Text>
+                    <Switch
+                        value={notifications.budgetAlerts}
+                        onValueChange={() => toggleNotification("budgetAlerts")}
+                        disabled={notificationsSaving}
+                        trackColor={{ false: colors.border, true: colors.mint }}
+                        thumbColor={colors.white}
+                    />
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.row}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="stats-chart-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Weekly Digest</Text>
+                    <Switch
+                        value={notifications.weeklyDigest}
+                        onValueChange={() => toggleNotification("weeklyDigest")}
+                        disabled={notificationsSaving}
+                        trackColor={{ false: colors.border, true: colors.mint }}
+                        thumbColor={colors.white}
+                    />
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.row}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="receipt-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Bill Reminders</Text>
+                    <Switch
+                        value={notifications.billReminders}
+                        onValueChange={() => toggleNotification("billReminders")}
+                        disabled={notificationsSaving}
+                        trackColor={{ false: colors.border, true: colors.mint }}
+                        thumbColor={colors.white}
+                    />
+                </View>
+
+            </View>
+
+            <Text style={styles.sectionLabel}>SECURITY</Text>
+
+            <View style={styles.card}>
+
+                <View style={styles.row}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="finger-print-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Biometric Unlock</Text>
+                    <Switch
+                        value={biometricEnabled}
+                        onValueChange={toggleBiometric}
+                        disabled={!biometricAvailable}
+                        trackColor={{ false: colors.border, true: colors.mint }}
+                        thumbColor={colors.white}
+                    />
+                </View>
+
+                {!biometricAvailable && (
+                    <Text style={styles.helperText}>
+                        Set up Face ID, Touch ID, or a device passcode to use this.
+                    </Text>
+                )}
 
             </View>
 
@@ -327,6 +1132,60 @@ function SettingsScreen() {
 
             </View>
 
+            <Text style={styles.sectionLabel}>DATA</Text>
+
+            <View style={styles.card}>
+
+                <TouchableOpacity
+                    style={styles.row}
+                    onPress={handleExport}
+                    disabled={exporting}
+                >
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="download-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                        {exporting ? "Preparing export..." : "Export Data"}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+            </View>
+
+            <Text style={styles.sectionLabel}>SUPPORT</Text>
+
+            <View style={styles.card}>
+
+                <TouchableOpacity style={styles.row} onPress={openHelpModal}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="help-circle-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Help & Feedback</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity style={styles.row} onPress={() => setPrivacyModalVisible(true)}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="shield-checkmark-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Privacy Policy</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity style={styles.row} onPress={() => setTermsModalVisible(true)}>
+                    <View style={styles.rowIconWrap}>
+                        <Ionicons name="document-text-outline" size={18} color={colors.navy} />
+                    </View>
+                    <Text style={styles.rowLabel}>Terms of Service</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+                </TouchableOpacity>
+
+            </View>
+
             <Text style={styles.sectionLabel}>ABOUT</Text>
 
             <View style={styles.card}>
@@ -345,6 +1204,25 @@ function SettingsScreen() {
                 <Ionicons name="log-out-outline" size={18} color={colors.coral} />
                 <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
+
+            <Text style={styles.sectionLabel}>DANGER ZONE</Text>
+
+            <View style={styles.dangerCard}>
+
+                <TouchableOpacity style={styles.row} onPress={openDeleteModal}>
+                    <View style={styles.dangerIconWrap}>
+                        <Ionicons name="trash-outline" size={18} color={colors.coral} />
+                    </View>
+                    <View style={styles.rowLeft}>
+                        <Text style={styles.dangerLabel}>Delete Account</Text>
+                        <Text style={styles.dangerSubtext}>
+                            Permanently deletes your data. Can't be undone.
+                        </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.coral} />
+                </TouchableOpacity>
+
+            </View>
 
             <Modal
                 visible={profileModalVisible}
@@ -367,16 +1245,6 @@ function SettingsScreen() {
                             onChangeText={(text) => setProfileForm({ ...profileForm, name: text })}
                         />
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email"
-                            placeholderTextColor={colors.inkSoft}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            value={profileForm.email}
-                            onChangeText={(text) => setProfileForm({ ...profileForm, email: text })}
-                        />
-
                         <View style={styles.modalActions}>
 
                             <TouchableOpacity
@@ -393,6 +1261,69 @@ function SettingsScreen() {
                             >
                                 <Text style={styles.saveButtonText}>
                                     {savingProfile ? "Saving..." : "Save"}
+                                </Text>
+                            </TouchableOpacity>
+
+                        </View>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
+            <Modal
+                visible={emailModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setEmailModalVisible(false)}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCard}>
+
+                        <Text style={styles.modalTitle}>Change Email</Text>
+
+                        <Text style={styles.modalSubtitle}>
+                            Current: {profile.email}
+                        </Text>
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="New Email"
+                            placeholderTextColor={colors.inkSoft}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            value={emailForm.newEmail}
+                            onChangeText={(text) => setEmailForm({ ...emailForm, newEmail: text })}
+                        />
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Current Password"
+                            placeholderTextColor={colors.inkSoft}
+                            secureTextEntry
+                            value={emailForm.password}
+                            onChangeText={(text) => setEmailForm({ ...emailForm, password: text })}
+                        />
+
+                        <View style={styles.modalActions}>
+
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setEmailModalVisible(false)}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.saveButton, savingEmail && styles.buttonDisabled]}
+                                onPress={submitEmailChange}
+                                disabled={savingEmail}
+                            >
+                                <Text style={styles.saveButtonText}>
+                                    {savingEmail ? "Saving..." : "Save"}
                                 </Text>
                             </TouchableOpacity>
 
@@ -439,6 +1370,17 @@ function SettingsScreen() {
                             }
                         />
 
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirm New Password"
+                            placeholderTextColor={colors.inkSoft}
+                            secureTextEntry
+                            value={password.confirmPassword}
+                            onChangeText={(text) =>
+                                setPassword({ ...password, confirmPassword: text })
+                            }
+                        />
+
                         <View style={styles.modalActions}>
 
                             <TouchableOpacity
@@ -466,13 +1408,242 @@ function SettingsScreen() {
 
             </Modal>
 
+            <Modal
+                visible={pickerModal.visible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setPickerModal((prev) => ({ ...prev, visible: false }))}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCard}>
+
+                        <Text style={styles.modalTitle}>{pickerModal.title}</Text>
+
+                        {pickerModal.options.map((option, index) => (
+
+                            <View key={option.key}>
+
+                                <TouchableOpacity
+                                    style={styles.pickerRow}
+                                    onPress={() => pickerModal.onSelect(option.key)}
+                                >
+                                    <Text style={styles.rowLabel}>{option.label}</Text>
+                                    {pickerModal.selectedKey === option.key && (
+                                        <Ionicons name="checkmark" size={20} color={colors.mint} />
+                                    )}
+                                </TouchableOpacity>
+
+                                {index < pickerModal.options.length - 1 && (
+                                    <View style={styles.divider} />
+                                )}
+
+                            </View>
+
+                        ))}
+
+                        <TouchableOpacity
+                            style={styles.cancelButton}
+                            onPress={() => setPickerModal((prev) => ({ ...prev, visible: false }))}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
+            <Modal
+                visible={deleteModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setDeleteModalVisible(false)}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCard}>
+
+                        <Text style={styles.modalTitle}>Delete Account</Text>
+
+                        <Text style={styles.modalSubtitle}>
+                            This permanently deletes your account and all data. This can't be undone.
+                        </Text>
+
+                        <Text style={styles.fieldLabel}>Type DELETE to confirm</Text>
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="DELETE"
+                            placeholderTextColor={colors.inkSoft}
+                            autoCapitalize="characters"
+                            value={deleteForm.confirmText}
+                            onChangeText={(text) =>
+                                setDeleteForm({ ...deleteForm, confirmText: text })
+                            }
+                        />
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            placeholderTextColor={colors.inkSoft}
+                            secureTextEntry
+                            value={deleteForm.password}
+                            onChangeText={(text) =>
+                                setDeleteForm({ ...deleteForm, password: text })
+                            }
+                        />
+
+                        <View style={styles.modalActions}>
+
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setDeleteModalVisible(false)}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.dangerButton,
+                                    deletingAccount && styles.buttonDisabled,
+                                ]}
+                                onPress={submitDeleteAccount}
+                                disabled={deletingAccount}
+                            >
+                                <Text style={styles.dangerButtonText}>
+                                    {deletingAccount ? "Deleting..." : "Delete Account"}
+                                </Text>
+                            </TouchableOpacity>
+
+                        </View>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
+            <Modal
+                visible={privacyModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setPrivacyModalVisible(false)}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCardTall}>
+
+                        <Text style={styles.modalTitle}>Privacy Policy</Text>
+
+                        <ScrollView style={styles.policyScroll}>
+                            <Text style={styles.policyText}>{PRIVACY_POLICY_TEXT}</Text>
+                        </ScrollView>
+
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={() => setPrivacyModalVisible(false)}
+                        >
+                            <Text style={styles.saveButtonText}>Close</Text>
+                        </TouchableOpacity>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
+            <Modal
+                visible={termsModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setTermsModalVisible(false)}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCardTall}>
+
+                        <Text style={styles.modalTitle}>Terms of Service</Text>
+
+                        <ScrollView style={styles.policyScroll}>
+                            <Text style={styles.policyText}>{TERMS_TEXT}</Text>
+                        </ScrollView>
+
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={() => setTermsModalVisible(false)}
+                        >
+                            <Text style={styles.saveButtonText}>Close</Text>
+                        </TouchableOpacity>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
+            <Modal
+                visible={helpModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setHelpModalVisible(false)}
+            >
+
+                <View style={styles.modalOverlay}>
+
+                    <View style={styles.modalCard}>
+
+                        <Text style={styles.modalTitle}>Help & Feedback</Text>
+
+                        <Text style={styles.modalSubtitle}>
+                            Tell us what's wrong or what you'd like to see — this opens your
+                            mail app addressed to {SUPPORT_EMAIL}.
+                        </Text>
+
+                        <TextInput
+                            style={[styles.input, styles.feedbackInput]}
+                            placeholder="What's on your mind?"
+                            placeholderTextColor={colors.inkSoft}
+                            multiline
+                            textAlignVertical="top"
+                            value={feedbackMessage}
+                            onChangeText={setFeedbackMessage}
+                        />
+
+                        <View style={styles.modalActions}>
+
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setHelpModalVisible(false)}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.saveButton} onPress={sendFeedback}>
+                                <Text style={styles.saveButtonText}>Send</Text>
+                            </TouchableOpacity>
+
+                        </View>
+
+                    </View>
+
+                </View>
+
+            </Modal>
+
         </ScrollView>
+
 
     );
 
 }
 
-function createStyles(colors) {
+function createStyles(colors, insets) {
     return StyleSheet.create({
 
     screen: {
@@ -481,7 +1652,8 @@ function createStyles(colors) {
     },
 
     content: {
-        padding: spacing.lg,
+        paddingHorizontal: spacing.lg,
+        paddingTop: insets.top + spacing.md,
         paddingBottom: spacing.xl,
     },
 
@@ -555,6 +1727,11 @@ function createStyles(colors) {
         alignItems: "center",
         paddingVertical: spacing.sm + 2,
         paddingHorizontal: spacing.md,
+        gap: spacing.xs,
+    },
+
+    rowLeft: {
+        flex: 1,
     },
 
     rowIconWrap: {
@@ -564,7 +1741,7 @@ function createStyles(colors) {
         backgroundColor: colors.paper,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: spacing.sm,
+        marginRight: spacing.xs,
     },
 
     rowLabel: {
@@ -578,6 +1755,15 @@ function createStyles(colors) {
         fontFamily: fonts.body,
         color: colors.inkSoft,
         fontSize: 13,
+    },
+
+    helperText: {
+        fontFamily: fonts.body,
+        color: colors.inkSoft,
+        fontSize: 12,
+        paddingHorizontal: spacing.md,
+        paddingBottom: spacing.sm + 2,
+        marginTop: -spacing.xs,
     },
 
     divider: {
@@ -596,12 +1782,45 @@ function createStyles(colors) {
         borderWidth: 1,
         borderColor: colors.coralSoft,
         backgroundColor: colors.surface,
+        marginBottom: spacing.md,
     },
 
     logoutText: {
         fontFamily: fonts.bodyMedium,
         color: colors.coral,
         fontSize: 15,
+    },
+
+    dangerCard: {
+        backgroundColor: colors.coralSoft,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.coral,
+        marginBottom: spacing.md,
+    },
+
+    dangerIconWrap: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: spacing.xs,
+    },
+
+    dangerLabel: {
+        fontFamily: fonts.bodyMedium,
+        color: colors.coral,
+        fontSize: 15,
+    },
+
+    dangerSubtext: {
+        fontFamily: fonts.body,
+        color: colors.coral,
+        fontSize: 12,
+        marginTop: 2,
+        opacity: 0.85,
     },
 
     modalOverlay: {
@@ -618,11 +1837,49 @@ function createStyles(colors) {
         ...shadow.card,
     },
 
+    modalCardTall: {
+        backgroundColor: colors.surface,
+        borderTopLeftRadius: radius.lg,
+        borderTopRightRadius: radius.lg,
+        padding: spacing.lg,
+        maxHeight: "80%",
+        ...shadow.card,
+    },
+
+    policyScroll: {
+        marginBottom: spacing.md,
+    },
+
+    policyText: {
+        fontFamily: fonts.body,
+        fontSize: 13,
+        lineHeight: 20,
+        color: colors.ink,
+    },
+
+    feedbackInput: {
+        minHeight: 100,
+    },
+
     modalTitle: {
         fontFamily: fonts.displayBold,
         fontSize: 18,
         color: colors.ink,
         marginBottom: spacing.md,
+    },
+
+    modalSubtitle: {
+        fontFamily: fonts.body,
+        fontSize: 13,
+        color: colors.inkSoft,
+        marginBottom: spacing.md,
+    },
+
+    fieldLabel: {
+        fontFamily: fonts.bodyMedium,
+        fontSize: 13,
+        color: colors.inkSoft,
+        marginBottom: spacing.xs,
     },
 
     input: {
@@ -634,6 +1891,12 @@ function createStyles(colors) {
         fontFamily: fonts.body,
         color: colors.ink,
         marginBottom: spacing.sm,
+    },
+
+    pickerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: spacing.sm + 4,
     },
 
     modalActions: {
@@ -661,6 +1924,18 @@ function createStyles(colors) {
     },
 
     saveButtonText: {
+        fontFamily: fonts.bodyMedium,
+        color: colors.white,
+    },
+
+    dangerButton: {
+        backgroundColor: colors.coral,
+        borderRadius: radius.sm,
+        paddingVertical: spacing.sm + 2,
+        paddingHorizontal: spacing.lg,
+    },
+
+    dangerButtonText: {
         fontFamily: fonts.bodyMedium,
         color: colors.white,
     },

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
     View,
     Text,
@@ -6,10 +6,11 @@ import {
     TouchableOpacity,
     FlatList,
     KeyboardAvoidingView,
+    Keyboard,
     Platform,
-    SafeAreaView,
     StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { sendChatMessage } from "../api/ai";
 import { useTheme } from "../context/ThemeContext";
@@ -31,6 +32,12 @@ export default function ChatScreen() {
     const scrollToEnd = () => {
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
     };
+
+    useEffect(() => {
+        const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+        const sub = Keyboard.addListener(showEvent, scrollToEnd);
+        return () => sub.remove();
+    }, []);
 
     const handleSend = async () => {
         const text = input.trim();
@@ -78,7 +85,7 @@ export default function ChatScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
             <View style={styles.header}>
                 <View style={styles.headerIcon}>
                     <Ionicons name="sparkles" size={18} color={colors.white} />
@@ -91,8 +98,8 @@ export default function ChatScreen() {
 
             <KeyboardAvoidingView
                 style={styles.flexFill}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-                keyboardVerticalOffset={90}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
             >
                 <FlatList
                     ref={listRef}

@@ -11,7 +11,11 @@ SYSTEM_PROMPT = (
     "You are PocketPilot AI's financial assistant, helping a student manage their "
     "money. You have tools to look up the user's real expenses, income, and budget "
     "status — use them whenever a question depends on their actual numbers rather "
-    "than guessing. Be concise, encouraging, and practical. Never invent figures."
+    "than guessing. Be concise, encouraging, and practical. Never invent figures. "
+    "Reply in plain, conversational text only — no Markdown. Do not use asterisks, "
+    "underscores, pound signs, bullet characters, or any other formatting symbols. "
+    "If you need to list a few items, write them as a short sentence or use simple "
+    "line breaks with plain numbers like '1)' instead of headers or bold text."
 )
 
 
@@ -27,7 +31,7 @@ def run_chat(messages: list[dict], db: Session, user_id: int) -> str:
     tools = make_tools(db, user_id)
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,

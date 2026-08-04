@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PieChart } from "react-native-gifted-charts";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -12,7 +13,8 @@ import { fonts, spacing, radius, shadow } from "../theme/tokens";
 function DashboardScreen() {
 
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const insets = useSafeAreaInsets();
+    const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
     const PALETTE = useMemo(
         () => [colors.mint, colors.coral, colors.amber, colors.navy, "#5b8def", "#9b6bd6"],
         [colors]
@@ -251,7 +253,7 @@ function DashboardScreen() {
 
 }
 
-function createStyles(colors) {
+function createStyles(colors, insets) {
     return StyleSheet.create({
 
     screen: {
@@ -260,7 +262,8 @@ function createStyles(colors) {
     },
 
     content: {
-        padding: spacing.lg,
+        paddingHorizontal: spacing.lg,
+        paddingTop: insets.top + spacing.md,
         paddingBottom: spacing.xl,
     },
 

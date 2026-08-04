@@ -12,6 +12,7 @@ import {
     ScrollView,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -29,7 +30,8 @@ import { fonts, spacing, radius, shadow } from "../theme/tokens";
 function ExpensesScreen() {
 
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const insets = useSafeAreaInsets();
+    const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
 
     const [expenses, setExpenses] = useState([]);
 
@@ -510,13 +512,15 @@ function ExpensesScreen() {
 
 }
 
-function createStyles(colors) {
+function createStyles(colors, insets) {
     return StyleSheet.create({
 
     screen: {
         flex: 1,
         backgroundColor: colors.paper,
-        padding: spacing.lg,
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.lg,
+        paddingTop: insets.top + spacing.md,
     },
 
     header: {
