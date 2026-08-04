@@ -16,6 +16,21 @@ import { resetPassword } from "../api/auth";
 import { colors, fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
+function getErrorMessage(error) {
+    const detail = error?.response?.data?.detail;
+
+    if (Array.isArray(detail)) {
+        return detail.map((d) => d.msg).join("\n");
+    }
+
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    return "That reset link is invalid or expired.";
+}
+
+
 // route.params.token is populated automatically when the app is opened via
 // the deep link in the reset email. Pasting the code manually still works
 // as a fallback for testing or if the link doesn't open the app directly.
@@ -82,7 +97,7 @@ function ResetPasswordScreen({ navigation, route }) {
 
             Alert.alert(
                 "Reset failed",
-                error.response?.data?.detail || "That reset link is invalid or expired."
+                getErrorMessage(error)
             );
 
         } finally {
