@@ -16,6 +16,21 @@ import { loginUser } from "../api/auth";
 import { colors, fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
+function getErrorMessage(error) {
+    const detail = error?.response?.data?.detail;
+
+    if (Array.isArray(detail)) {
+        return detail.map((d) => d.msg).join("\n");
+    }
+
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    return "Invalid login";
+}
+
+
 function LoginScreen({ navigation }) {
 
     const { login } = useContext(AuthContext);
@@ -56,7 +71,7 @@ function LoginScreen({ navigation }) {
 
             Alert.alert(
                 "Login failed",
-                error.response?.data?.detail || "Invalid login"
+                getErrorMessage(error)
             );
 
         } finally {
