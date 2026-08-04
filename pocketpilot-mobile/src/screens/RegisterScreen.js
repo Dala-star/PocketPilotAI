@@ -14,6 +14,24 @@ import { registerUser } from "../api/auth";
 import { colors, fonts, spacing, radius, shadow } from "../theme/tokens";
 
 
+function getErrorMessage(error) {
+    const detail = error?.response?.data?.detail;
+
+    // FastAPI validation errors (422) send `detail` as an array of
+    // {loc, msg, type} objects, not a string — Alert.alert needs a string
+    // or it can throw. Normalize every shape down to plain text.
+    if (Array.isArray(detail)) {
+        return detail.map((d) => d.msg).join("\n");
+    }
+
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    return "Registration failed. Please try again.";
+}
+
+
 function RegisterScreen({ navigation }) {
 
     const [form, setForm] = useState({
@@ -27,6 +45,16 @@ function RegisterScreen({ navigation }) {
 
     const submit = async () => {
 
+        if (!form.name.trim() || !form.email.trim() || !form.password) {
+            Alert.alert("Missing info", "Please fill in all fields.");
+            return;
+        }
+
+        if (form.password.length < 8) {
+            Alert.alert("Weak password", "Password must be at least 8 characters.");
+            return;
+        }
+
         try {
 
             setLoading(true);
@@ -39,11 +67,11 @@ function RegisterScreen({ navigation }) {
 
         } catch (error) {
 
-            console.log(error);
+            console.log(error?.response?.data || error);
 
             Alert.alert(
                 "Registration failed",
-                error.response?.data?.detail || "Registration failed"
+                getErrorMessage(error)
             );
 
         } finally {
