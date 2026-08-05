@@ -20,6 +20,7 @@ from app.core.security import (
 
 from app.core.email_service import send_feedback_email
 
+import smtplib
 
 class FeedbackRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
@@ -101,10 +102,11 @@ def submit_feedback(
     data: FeedbackRequest,
     current_user: User = Depends(get_current_user)
 ):
-
     try:
         send_feedback_email(current_user.email, data.message)
-    except RuntimeError:
+    except (RuntimeError, OSError, smtplib.SMTPException) as e:
+        print(e)
+
         raise HTTPException(
             status_code=500,
             detail="Unable to send feedback right now. Please try again later."
@@ -112,10 +114,4 @@ def submit_feedback(
 
     return {
         "message": "Feedback sent"
-    }
-
-@router.get("/test")
-def test():
-    return {
-        "message": "This is the latest users.py"
     }
