@@ -113,3 +113,9 @@ def submit_feedback(
     return {
         "message": "Feedback sent"
     }
+
+@router.get("/test")
+def test():
+    return {
+        "message": "This is the latest users.py"
+    }
